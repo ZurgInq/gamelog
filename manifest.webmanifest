@@ -1,0 +1,15 @@
+{
+    "background_color": "white",
+    "description": "game statistic",
+    "display": "fullscreen",
+    "icons": [
+        {
+            "src": "2.png",
+            "sizes": "200x200",
+            "type": "image/png"
+        }
+    ],
+    "name": "MyGameLog",
+    "short_name": "MyGameLog",
+    "start_url": "index.html"
+}

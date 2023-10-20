@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/idb@7/build/umd.js"></script>
+  <script src="js/main.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <h2>Добавить игрока</h2>
+    <a id="game-link" href="edit-game.html?gameId=">Игра</a>
+    <form id="new-player-form">
+      <div class="form-group row">
+        <label for="playerName" class="col-4 col-form-label">Имя игрока</label>
+        <div class="col-8">
+          <input id="playerName" name="playerName" placeholder="Наталья" type="text" class="form-control"
+            required="required">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label class="col-4">Результат</label>
+        <div class="col-8">
+          <div class="custom-control custom-radio custom-control-inline">
+            <input name="playerResult" id="result_0" type="radio" required="required" class="custom-control-input"
+              value="winner">
+            <label for="result_0" class="custom-control-label">Победа</label>
+          </div>
+          <div class="custom-control custom-radio custom-control-inline">
+            <input name="playerResult" id="result_1" type="radio" required="required" class="custom-control-input"
+              value="loser">
+            <label for="result_1" class="custom-control-label">Поражение</label>
+          </div>
+          <div class="custom-control custom-radio custom-control-inline">
+            <input name="playerResult" id="result_2" type="radio" required="required" class="custom-control-input"
+              value="draw">
+            <label for="result_2" class="custom-control-label">Ничья</label>
+          </div>
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="text" class="col-4 col-form-label">Количество очков</label>
+        <div class="col-8">
+          <input id="score" name="score" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="tags" class="col-4 col-form-label">Теги</label>
+        <div class="col-8">
+          <input id="tags" name="tags" placeholder="tag1,tag2,tag3" type="text" class="form-control"
+            aria-describedby="tagsHelpBlock">
+          <span id="tagsHelpBlock" class="form-text text-muted">tag1,tag2,tag3</span>
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="offset-4 col-8">
+          <button id="submit" name="submit" type="submit" class="btn btn-primary"
+            onclick="return savePlayer();">Сохранить</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const gameId = getGameIdFromUrl();
+    document.getElementById('game-link').href += gameId;
+    
+    function savePlayer(event) {
+      const isValid = document.getElementById('new-player-form').reportValidity();
+      if (!isValid) {
+        return false;
+      }
+      document.getElementById('submit').disabled = true;
+
+      const data = {
+        name: document.getElementById('playerName').value,
+        result: document.querySelector('input[name="playerResult"]:checked').value,
+        score: document.getElementById('score').value,
+        tags: document.getElementById('tags').value,
+      };
+
+      openDB().then(db => {
+        const tx = db.transaction('games', 'readwrite');
+        tx.store.get(parseInt(gameId)).then(game => {
+          if (!game.players) {
+            game.players = [];
+          }
+          game.players.push(data);
+          tx.store.put(game);
+          ts.done.then(() => {
+            document.getElementById('submit').disabled = true;
+          })
+        });
+        // tx.done.then(() => {
+        //   document.getElementById('submit').textContent = 'Сохранено';
+        //   document.getElementById('submit').classList.replace('btn-primary', 'btn-success');
+        // });
+      });
+
+      return false;
+    }
+  </script>
+</body>
+
+</html>
