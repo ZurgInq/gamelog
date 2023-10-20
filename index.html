@@ -19,27 +19,31 @@
         <div class="row">
             <a href="edit-game.html">Добавить новую игру</a>
         </div>
-        
+
         <div class="row">
             <ul id="game-list" class=""></ul>
         </div>
-        
-        
+
+
         <div class="row">
             <div class="col-4">
-                <button id="download" name="download" type="" class="btn btn-primary" onclick="return download(event);">Сохранить как csv</button>
+                <button id="download" name="download" type="" class="btn btn-primary"
+                    onclick="return download(event);">Сохранить как csv</button>
             </div>
         </div>
-        
+
         <br>
-        
+
         <div class="row">
             <div class="col">
-                <button id="exportDB" name="exportDB" type="" class="btn btn-secondary btn-sm" onclick="return exportDB(event);">Экспорт БД</button>
-                <button id="importDB" importDB="exportDB" type="" class="btn btn-secondary btn-sm" onclick="return importDB(event);">Импорт БД</button>
+                <button id="exportDB" name="exportDB" type="" class="btn btn-secondary btn-sm"
+                    onclick="return exportDBClick(event);">Экспорт данных</button>
+                <button id="importDB" importDB="exportDB" type="" class="btn btn-secondary btn-sm"
+                    onclick="return importDBClick(event);">Импорт данных</button>
+                <input id="importDBInput" type="file" class="invisible" />
             </div>
         </div>
-        
+
     </div>
     <script>
         const gameListContainer = document.getElementById('game-list');
@@ -99,12 +103,55 @@
                 return false;
             })
         }
-        
+
         function deleteGameClick(event, gameId) {
             if (confirm(`Удалить игру?`)) {
                 deleteGameId(gameId, () => document.querySelector(`[data-game-id="${gameId}"]`).remove());
             }
         }
+
+        function exportDBClick(event) {
+            openDB().then(db => {
+                gamesTable = db.getAll('games').then(games => {
+                    const file = new File([JSON.stringify(games)], 'games.json', {
+                        type: 'application/json',
+                    });
+
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(file);
+
+                    link.href = url;
+                    link.download = file.name;
+                    document.body.appendChild(link);
+                    link.click();
+
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                });
+            });
+        }
+
+        function importDBClick(event) {
+            document.getElementById('importDBInput').click();
+        }
+
+        document.getElementById('importDBInput').addEventListener('change', (event) => {
+            var reader = new FileReader();
+            reader.onload = (event) => {
+                const gamesData = JSON.parse(event.target.result);
+                openDB().then(db => {
+                    const tx = db.transaction('games', 'readwrite');
+                    const gamesStore = tx.objectStore('games');
+                    gamesStore.clear().then(() => {
+                        for (const game of gamesData) {
+                            gamesStore.put(game);
+                        }    
+                    });
+                    tx.done.then(() => window.location.reload());
+                });
+            };
+            reader.readAsText(event.target.files[0]);
+        });
     </script>
 </body>
 
