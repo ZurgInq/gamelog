@@ -91,14 +91,11 @@
           }
           game.players.push(data);
           tx.store.put(game);
-          ts.done.then(() => {
+          tx.done.then(() => {
             document.getElementById('submit').disabled = true;
+            document.getElementById('game-link').click();
           })
         });
-        // tx.done.then(() => {
-        //   document.getElementById('submit').textContent = 'Сохранено';
-        //   document.getElementById('submit').classList.replace('btn-primary', 'btn-success');
-        // });
       });
 
       return false;

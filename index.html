@@ -17,7 +17,7 @@
     <div class="container">
         <h2>Список игр</h2>
         <div class="row">
-            <a href="edit-game.html">Добавить новую игру</a>
+            <a href="edit-game.html">Добавить игру</a>
         </div>
 
         <div class="row">
@@ -46,21 +46,63 @@
 
     </div>
     <script>
+        const urlParams = new URLSearchParams(window.location.search);
         const gameListContainer = document.getElementById('game-list');
+        const editTitle = urlParams.get('editTitle');
         openDB().then(db => {
             db.getAll('games').then(games => {
+                if (editTitle) {
+                    for (const game of games.filter(g => g.gameTitle === editTitle )) {
+                        const winners = (game.players || [])
+                            .filter(player => player.result === 'winner');
+                        const winnersNames = winners.map(player => player.name).join(',');
+                        const item = document.createElement('li');
+                        item.setAttribute('data-game-id', game.id);
+                        item.innerHTML = `<a href="edit-game.html?gameId=${game.id}"><i class="bi bi-pencil"></i></a> `
+                            + game.gameDate + ' ' + game.gameTitle
+                            + (parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${game.gameDuration}` : '')
+                            + (winnersNames.length > 0 ? `<br>Победители: ${winnersNames}` : '')
+                            + `<br> <a href="#" onclick="return deleteGameClick(event, ${game.id})">Удалить</a>`;
+                        gameListContainer.appendChild(item);
+                    }
+                    return;
+                }
+
+                const gamesByTitle = [];
                 for (const game of games) {
-                    const winners = (game.players || [])
-                        .filter(player => player.result === 'winner');
-                    const winnersNames = winners.map(player => player.name).join(',');
-                    const item = document.createElement('li');
-                    item.setAttribute('data-game-id', game.id);
-                    item.innerHTML = `<a href="edit-game.html?gameId=${game.id}"><i class="bi bi-pencil"></i></a> `
-                        + game.gameDate + ' ' + game.gameTitle
-                        + (parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${game.gameDuration}` : '')
-                        + (winnersNames.length > 0 ? `<br>Победители: ${winnersNames}` : '')
-                        + `<br> <a href="#" onclick="return deleteGameClick(event, ${game.id})">Удалить</a>`;
-                    gameListContainer.appendChild(item);
+                    if (!gamesByTitle[game.gameTitle]) {
+                        gamesByTitle[game.gameTitle] = [];
+                    }
+                    gamesByTitle[game.gameTitle].push(game);
+                }
+                for (const gameTitle in gamesByTitle) {
+                    if (Object.hasOwnProperty.call(gamesByTitle, gameTitle)) {
+                        const playersByName = [];
+                        const games = gamesByTitle[gameTitle];
+                        for (const game of games) {
+                            for (const player of (game.players ?? [])) {
+                                playersByName[player.name] ??= [];
+                                playersByName[player.name].push(player);
+                            }
+                        }
+
+                        const item = document.createElement('li');
+                        item.innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i></a> `
+                            + `<a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i></a> `
+                            + `<strong>${gameTitle}</strong><br>Количество игр: ${games.length}<br>`;
+                        for (const playerName in playersByName) {
+                            if (Object.hasOwnProperty.call(playersByName, playerName)) {
+                                const players = playersByName[playerName];
+                                const winCount = getWinners({ players }).length;
+                                const loseCount = getLosers({ players }).length;
+                                const drawCount = getDraws({ players }).length;
+                                item.innerHTML += `${playerName}: ${winCount} / ${loseCount} / ${drawCount}<br>`;
+                            }
+                        }
+                        item.innerHTML += `<small>Побед / Поражений / Ничьи</small> <br>`
+
+                        gameListContainer.appendChild(item);
+                    }
                 }
             });
         });
@@ -70,35 +112,35 @@
             openDB().then(db => {
                 db.getAll('games').then(games => {
                     const rows = [
-                        ["id", "Название игры", "Дата игры", "Длительность", "Игроков", "Теги", "Имя игрока"],
+                        ["id", "Название игры", "Дата игры", "Длительность", "Теги", "Имя игрока", "Результат", "Очки", "Игрок - теги"],
                     ];
                     games.forEach(game => {
-                        if (!game.players) {
-                            game.players = [];
+                        let winners = '';
+                        if (game.players && game.players.length > 0) {
+                            winners = getWinnersNames(game);
+                        } else {
+                            game.players = [{}];
                         }
-                        console.log(game);
-                        game.players.forEach(player => {
+                        game.players.forEach((player, idx) => {
                             rows.push([
                                 game.id,
-                                game.gameTitle,
+                                escapeCSVString(game.gameTitle),
                                 game.gameDate,
                                 game.gameDuration,
-                                game.playersCount,
-                                game.tags,
-                                player.name,
+                                escapeCSVString(game.tags ?? ''),
+                                player.name ?? '',
+                                player.result ?? '',
+                                player.score ?? '',
+                                player.tags ?? '',
                             ]);
                         });
                     });
-                    let csvContent = "data:text/csv;charset=utf-8,"
-                        + rows.map(e => e.join(",")).join("\n");
+                    let csvContent = rows.map(e => e.join(',')).join("\n");
 
-                    var encodedUri = encodeURI(csvContent);
-                    var link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", "my_data.csv");
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
+                    const file = new File([csvContent], 'my-games.csv', {
+                        type: 'text/csv',
+                    });
+                    downloadFile(file);
                 });
                 return false;
             })
@@ -106,7 +148,7 @@
 
         function deleteGameClick(event, gameId) {
             if (confirm(`Удалить игру?`)) {
-                deleteGameId(gameId, () => document.querySelector(`[data-game-id="${gameId}"]`).remove());
+                deleteGame(gameId, () => document.querySelector(`[data-game-id="${gameId}"]`).remove());
             }
         }
 
@@ -116,17 +158,7 @@
                     const file = new File([JSON.stringify(games)], 'games.json', {
                         type: 'application/json',
                     });
-
-                    const link = document.createElement('a');
-                    const url = URL.createObjectURL(file);
-
-                    link.href = url;
-                    link.download = file.name;
-                    document.body.appendChild(link);
-                    link.click();
-
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
+                    downloadFile(file);
                 });
             });
         }
@@ -145,7 +177,7 @@
                     gamesStore.clear().then(() => {
                         for (const game of gamesData) {
                             gamesStore.put(game);
-                        }    
+                        }
                     });
                     tx.done.then(() => window.location.reload());
                 });

@@ -53,6 +53,8 @@
         <div class="offset-4 col-8">
           <button id="submit" name="submit" type="submit" class="btn btn-primary"
             onclick="return saveGameClick(event);">Сохранить</button>
+          <button id="submitAndAdd" name="submit" type="submit" class="btn btn-primary"
+            onclick="return saveGameClick(event, true);"><span>Сохранить <br> и добавить игрока</span></button>
         </div>
       </div>
     </form>
@@ -111,6 +113,11 @@
         }
       });
     } else {
+      const urlParams = new URLSearchParams(window.location.search);
+      const gameTitle = urlParams.get('title');
+      if (gameTitle) {
+        document.getElementById('gameTitle').value = gameTitle;
+      }
       if (document.getElementById('gameDate').value == '') {
         document.getElementById('gameDate').valueAsDate = new Date();
       }
@@ -118,18 +125,19 @@
 
     function delPlayerClick(event, plIdx) {
       event.stopPropagation();
-
-      updateGameId(gameId, (game) => {
-        game.players.splice(plIdx, 1);
-        return game;
-      }, () => {
-        document.querySelector(`[data-player-idx="${plIdx}"]`).remove();
-      });
+      if (confirm(`Удалить игрока?`)) {
+        updateGameId(gameId, (game) => {
+          game.players.splice(plIdx, 1);
+          return game;
+        }, () => {
+          document.querySelector(`[data-player-idx="${plIdx}"]`).remove();
+        });
+      }
 
       return false;
     }
 
-    function saveGameClick(event) {
+    function saveGameClick(event, addPlayerAfterCreate) {
       event.stopPropagation();
       const isValid = document.getElementById('new-game-form').reportValidity();
       if (!isValid) {
@@ -162,6 +170,9 @@
           document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + insertedId;
         });
         tx.done.then(() => {
+          if (addPlayerAfterCreate) {
+            document.getElementById('btn-add-player').click();
+          }
           document.getElementById('submit').textContent = 'Сохранено';
           document.getElementById('submit').classList.replace('btn-primary', 'btn-success');
           document.getElementById('btn-add-player').style.display = 'inline';

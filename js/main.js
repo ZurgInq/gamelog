@@ -25,7 +25,7 @@ function updateGameId(gameId, update, done) {
     });
 }
 
-function deleteGameId(gameId, callback) {
+function deleteGame(gameId, callback) {
     openDB().then(db => {
         db.delete('games', gameId).then(callback);
     });
@@ -38,4 +38,44 @@ function getGameIdFromUrl() {
         return null;
     }
     return gameId;
+}
+
+function downloadFile(file) {
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(file);
+
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+}
+
+
+function escapeCSVString(str) {
+    if (!str || str.length === 0) {
+        return '';
+    }
+    return `"` + str.replace(/"/g, `""`) + `"`;
+}
+
+function getWinners(game) {
+    return (game.players || [])
+        .filter(player => player.result === 'winner');
+}
+
+function getLosers(game) {
+    return (game.players || [])
+        .filter(player => player.result === 'loser');
+}
+
+function getDraws(game) {
+    return (game.players || [])
+        .filter(player => player.result === 'draw');
+}
+
+function getWinnersNames(game) {
+    return getWinners(game).map(player => player.name).join(',');
 }
