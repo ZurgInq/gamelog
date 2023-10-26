@@ -48,26 +48,8 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const gameListContainer = document.getElementById('game-list');
-        const editTitle = urlParams.get('editTitle');
         openDB().then(db => {
             db.getAll('games').then(games => {
-                if (editTitle) {
-                    for (const game of games.filter(g => g.gameTitle === editTitle )) {
-                        const winners = (game.players || [])
-                            .filter(player => player.result === 'winner');
-                        const winnersNames = winners.map(player => player.name).join(',');
-                        const item = document.createElement('li');
-                        item.setAttribute('data-game-id', game.id);
-                        item.innerHTML = `<a href="edit-game.html?gameId=${game.id}"><i class="bi bi-pencil"></i></a> `
-                            + game.gameDate + ' ' + game.gameTitle
-                            + (parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${game.gameDuration}` : '')
-                            + (winnersNames.length > 0 ? `<br>Победители: ${winnersNames}` : '')
-                            + `<br> <a href="#" onclick="return deleteGameClick(event, ${game.id})">Удалить</a>`;
-                        gameListContainer.appendChild(item);
-                    }
-                    return;
-                }
-
                 const gamesByTitle = [];
                 for (const game of games) {
                     if (!gamesByTitle[game.gameTitle]) {
@@ -87,19 +69,20 @@
                         }
 
                         const item = document.createElement('li');
-                        item.innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i></a> `
-                            + `<a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i></a> `
-                            + `<strong>${gameTitle}</strong><br>Количество игр: ${games.length}<br>`;
+                        item.innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i> ${gameTitle}</a> `
+                            + `<a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i> Добавить</a> `
+                            + `<br>Количество игр: ${games.length}<br>`;
+
                         for (const playerName in playersByName) {
                             if (Object.hasOwnProperty.call(playersByName, playerName)) {
                                 const players = playersByName[playerName];
                                 const winCount = getWinners({ players }).length;
                                 const loseCount = getLosers({ players }).length;
                                 const drawCount = getDraws({ players }).length;
-                                item.innerHTML += `${playerName}: ${winCount} / ${loseCount} / ${drawCount}<br>`;
+                                item.innerHTML += `${playerName}: <span style="color:green">${winCount}</span> / <span style="color:red">${loseCount}</span>${!drawCount ? '' : ` / ${drawCount}`}<br>`;
                             }
                         }
-                        item.innerHTML += `<small>Побед / Поражений / Ничьи</small> <br>`
+                        item.innerHTML += `<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small> <br>`
 
                         gameListContainer.appendChild(item);
                     }

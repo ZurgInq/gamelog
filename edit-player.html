@@ -4,8 +4,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css"
+    integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/idb@7/build/umd.js"></script>
   <script src="js/main.js"></script>
 </head>
@@ -13,7 +14,13 @@
 <body>
   <div class="container">
     <h2>Добавить игрока</h2>
-    <a id="game-link" href="edit-game.html?gameId=">Игра</a>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
+        <li class="breadcrumb-item"><a href="index.html">Список игр</a></li>
+        <li class="breadcrumb-item active"><a id="game-link" href="edit-game.html?gameId=">Игра</a></li>
+      </ol>
+    </nav>
     <form id="new-player-form">
       <div class="form-group row">
         <label for="playerName" class="col-4 col-form-label">Имя игрока</label>
@@ -59,7 +66,9 @@
       <div class="form-group row">
         <div class="offset-4 col-8">
           <button id="submit" name="submit" type="submit" class="btn btn-primary"
-            onclick="return savePlayer();">Сохранить</button>
+            onclick="return savePlayer(event);">Сохранить</button>
+          <button id="submitAndAddOther" name="submit" type="submit" class="btn btn-primary"
+            onclick="return savePlayer(event, true);">Сохранить и добавить ещё</button>
         </div>
       </div>
     </form>
@@ -68,8 +77,8 @@
   <script>
     const gameId = getGameIdFromUrl();
     document.getElementById('game-link').href += gameId;
-    
-    function savePlayer(event) {
+
+    function savePlayer(event, addOther) {
       const isValid = document.getElementById('new-player-form').reportValidity();
       if (!isValid) {
         return false;
@@ -92,8 +101,13 @@
           game.players.push(data);
           tx.store.put(game);
           tx.done.then(() => {
-            document.getElementById('submit').disabled = true;
-            document.getElementById('game-link').click();
+            if (addOther) {
+              document.getElementById('new-player-form').reset();
+              window.location.reload();
+            } else {
+              document.getElementById('submit').disabled = true;
+              document.getElementById('game-link').click();
+            }
           })
         });
       });
