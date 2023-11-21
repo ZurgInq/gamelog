@@ -10,6 +10,13 @@
         integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/idb@7/build/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct"
+        crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="css/main.css">
     <script src="js/main.js"></script>
 </head>
 
@@ -17,29 +24,34 @@
     <div class="container">
         <h2>Список игр</h2>
         <div class="row">
-            <a href="edit-game.html">Добавить игру</a>
-        </div>
-
-        <div class="row">
-            <ul id="game-list" class=""></ul>
-        </div>
-
-
-        <div class="row">
-            <div class="col-4">
-                <button id="download" name="download" type="" class="btn btn-primary"
-                    onclick="return download(event);">Сохранить как csv</button>
+            <div class="col">
+                <div class="form-group">
+                    <a href="edit-game.html">Добавить игру</a>
+                </div>
+                <div class="form-group">
+                    <input id="game-filter-input" placeholder="Поиск" type="text" class="class=" form-control">
+                </div>
             </div>
+        </div>
+
+        <div class="row">
+            <ul id="game-list" class="no-bullets game-list"></ul>
         </div>
 
         <br>
 
         <div class="row">
             <div class="col">
-                <button id="exportDB" name="exportDB" type="" class="btn btn-secondary btn-sm"
-                    onclick="return exportDBClick(event);">Экспорт данных</button>
-                <button id="importDB" importDB="exportDB" type="" class="btn btn-secondary btn-sm"
-                    onclick="return importDBClick(event);">Импорт данных</button>
+                <div class="dropdown">
+                    <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                        Экспорт\Импорт
+                    </button>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" onclick="return downloadAsCsv(event);" href="#">Сохранить как csv</a>
+                        <a class="dropdown-item" onclick="return exportDBClick(event);" href="#">Экспорт json</a>
+                        <a class="dropdown-item" onclick="return importDBClick(event);" href="#">Импорт json</a>
+                    </div>
+                </div>
                 <input id="importDBInput" type="file" class="invisible" />
             </div>
         </div>
@@ -48,8 +60,17 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const gameListContainer = document.getElementById('game-list');
-        openDB().then(db => {
-            db.getAll('games').then(games => {
+
+        const filterChangeEvent = debounceFn(function (event) {
+            console.log(event.target.value);
+            renderGameList(event.target.value.toLowerCase());
+        }, 200);
+
+        document.getElementById('game-filter-input').addEventListener("keyup", filterChangeEvent);
+
+        function renderGameList(gameFilterValue = '') {
+            openDB().then(async (db) => {
+                const games = await db.getAll('games');
                 const gamesByTitle = [];
                 for (const game of games) {
                     if (!gamesByTitle[game.gameTitle]) {
@@ -57,40 +78,58 @@
                     }
                     gamesByTitle[game.gameTitle].push(game);
                 }
-                for (const gameTitle in gamesByTitle) {
-                    if (Object.hasOwnProperty.call(gamesByTitle, gameTitle)) {
-                        const playersByName = [];
-                        const games = gamesByTitle[gameTitle];
-                        for (const game of games) {
-                            for (const player of (game.players ?? [])) {
-                                playersByName[player.name] ??= [];
-                                playersByName[player.name].push(player);
-                            }
-                        }
 
-                        const item = document.createElement('li');
-                        item.innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i> ${gameTitle}</a> `
-                            + `<a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i> Добавить</a> `
-                            + `<br>Количество игр: ${games.length}<br>`;
+                const titles = Object.keys(gamesByTitle);
+                titles.sort();
 
-                        for (const playerName in playersByName) {
-                            if (Object.hasOwnProperty.call(playersByName, playerName)) {
-                                const players = playersByName[playerName];
-                                const winCount = getWinners({ players }).length;
-                                const loseCount = getLosers({ players }).length;
-                                const drawCount = getDraws({ players }).length;
-                                item.innerHTML += `${playerName}: <span style="color:green">${winCount}</span> / <span style="color:red">${loseCount}</span>${!drawCount ? '' : ` / ${drawCount}`}<br>`;
-                            }
-                        }
-                        item.innerHTML += `<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small> <br>`
-
-                        gameListContainer.appendChild(item);
+                let lastTitle = '';
+                gameListContainer.innerHTML = '';
+                for (const gameTitle of titles) {
+                    if (gameFilterValue !== '' && !gameTitle.toLowerCase().includes(gameFilterValue)) {
+                        continue;
                     }
+                    const playersByName = [];
+                    const games = gamesByTitle[gameTitle];
+                    for (const game of games) {
+                        for (const player of (game.players ?? [])) {
+                            playersByName[player.name] ??= [];
+                            playersByName[player.name].push(player);
+                        }
+                    }
+
+                    const item = document.createElement('li');
+                    item.innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i> ${gameTitle}</a> `
+                        + `<a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i> Добавить</a> `
+                        + `<br>Количество игр: ${games.length}<br>`;
+
+                    for (const playerName in playersByName) {
+                        if (Object.hasOwnProperty.call(playersByName, playerName)) {
+                            const players = playersByName[playerName];
+                            const winCount = getWinners({ players }).length;
+                            const loseCount = getLosers({ players }).length;
+                            const drawCount = getDraws({ players }).length;
+                            item.innerHTML += `${playerName}: <span style="color:green">${winCount}</span> / <span style="color:red">${loseCount}</span>${!drawCount ? '' : ` / ${drawCount}`}<br>`;
+                        }
+                    }
+                    item.innerHTML += `<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small> <br><hr>`
+
+                    if (gameTitle[0] !== lastTitle[0]) {
+                        item.innerHTML = `<strong class="titleMarker">${gameTitle[0]}</strong> ` + item.innerHTML;
+                    }
+
+                    lastTitle = gameTitle;
+                    gameListContainer.appendChild(item);
                 }
             });
-        });
+        }
 
-        function download(event) {
+        function deleteGameClick(event, gameId) {
+            if (confirm(`Удалить игру?`)) {
+                deleteGame(gameId, () => document.querySelector(`[data-game-id="${gameId}"]`).remove());
+            }
+        }
+
+        function downloadAsCsv(event) {
             event.preventDefault();
             openDB().then(db => {
                 db.getAll('games').then(games => {
@@ -126,44 +165,35 @@
                     downloadFile(file);
                 });
                 return false;
-            })
-        }
-
-        function deleteGameClick(event, gameId) {
-            if (confirm(`Удалить игру?`)) {
-                deleteGame(gameId, () => document.querySelector(`[data-game-id="${gameId}"]`).remove());
-            }
+            });
+            return false;
         }
 
         function exportDBClick(event) {
-            openDB().then(db => {
-                gamesTable = db.getAll('games').then(games => {
-                    const file = new File([JSON.stringify(games)], 'games.json', {
-                        type: 'application/json',
-                    });
-                    downloadFile(file);
+            event.preventDefault();
+            (async () => {
+                const data = await exportDb();
+                const file = new File([JSON.stringify(data)], 'db1.json', {
+                    type: 'application/json',
                 });
-            });
+                downloadFile(file);
+            })();
+            return false;
         }
 
         function importDBClick(event) {
+            event.preventDefault();
             document.getElementById('importDBInput').click();
+            return false;
         }
+
+        renderGameList(document.getElementById('game-filter-input').value);
 
         document.getElementById('importDBInput').addEventListener('change', (event) => {
             var reader = new FileReader();
             reader.onload = (event) => {
-                const gamesData = JSON.parse(event.target.result);
-                openDB().then(db => {
-                    const tx = db.transaction('games', 'readwrite');
-                    const gamesStore = tx.objectStore('games');
-                    gamesStore.clear().then(() => {
-                        for (const game of gamesData) {
-                            gamesStore.put(game);
-                        }
-                    });
-                    tx.done.then(() => window.location.reload());
-                });
+                const dbData = JSON.parse(event.target.result);
+                importDb(dbData).then(() => window.location.reload());
             };
             reader.readAsText(event.target.files[0]);
         });

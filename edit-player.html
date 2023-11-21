@@ -92,24 +92,25 @@
         tags: document.getElementById('tags').value,
       };
 
-      openDB().then(db => {
-        const tx = db.transaction('games', 'readwrite');
-        tx.store.get(parseInt(gameId)).then(game => {
-          if (!game.players) {
-            game.players = [];
-          }
-          game.players.push(data);
-          tx.store.put(game);
-          tx.done.then(() => {
-            if (addOther) {
-              document.getElementById('new-player-form').reset();
-              window.location.reload();
-            } else {
-              document.getElementById('submit').disabled = true;
-              document.getElementById('game-link').click();
-            }
-          })
-        });
+      openDB().then(async (db) => {
+        const tx = db.transaction(['games', 'settings'], 'readwrite');
+        const gameStore = tx.objectStore('games');
+        const game = await gameStore.get(parseInt(gameId));
+        if (!game.players) {
+          game.players = [];
+        }
+        game.players.push(data);
+        await gameStore.put(game);
+        await incDBVersion(tx);
+        await tx.done;
+
+        if (addOther) {
+          document.getElementById('new-player-form').reset();
+          window.location.reload();
+        } else {
+          document.getElementById('submit').disabled = true;
+          document.getElementById('game-link').click();
+        }
       });
 
       return false;

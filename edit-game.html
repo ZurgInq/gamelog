@@ -90,7 +90,8 @@
   <script>
     const gameId = getGameIdFromUrl();
     if (gameId) {
-      loadGameById(gameId, (game) => {
+      (async () => {
+        const game = await loadGameById(gameId);
         if (game) {
           document.getElementById('gameTitle').value = game.gameTitle;
           document.getElementById('gameDate').value = game.gameDate;
@@ -120,7 +121,7 @@
 
           document.getElementById('listOfGamesLink').href += `?editTitle=${game.gameTitle}`;
         }
-      });
+      })();
     } else {
       const urlParams = new URLSearchParams(window.location.search);
       const gameTitle = urlParams.get('title');
@@ -164,29 +165,31 @@
       };
 
       if (gameId) {
-        updateGameId(gameId, (game) => {
-          data.id = game.id;
-          data.players = game.players;
-          return data;
-        }, () => {
+        (async () => {
+          await updateGameId(gameId, (game) => {
+            data.id = game.id;
+            data.players = game.players;
+            return data;
+          });
           document.getElementById('submit').disabled = false;
-        });
+        })();
         return false;
       }
 
-      openDB().then(db => {
-        const tx = db.transaction('games', 'readwrite');
-        tx.store.add(data).then(insertedId => {
-          document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + insertedId;
-        });
-        tx.done.then(() => {
-          if (addPlayerAfterCreate) {
-            document.getElementById('btn-add-player').click();
-          }
-          document.getElementById('submit').textContent = 'Сохранено';
-          document.getElementById('submit').classList.replace('btn-primary', 'btn-success');
-          document.getElementById('btn-add-player').style.display = 'inline';
-        });
+      openDB().then(async (db) => {
+        const tx = db.transaction(['games', 'settings'], 'readwrite');
+        const gamesStore = tx.objectStore('games');
+        const insertedId = await gamesStore.add(data);
+        document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + insertedId;
+        await incDBVersion(tx);
+        await tx.done;
+        if (addPlayerAfterCreate) {
+          document.getElementById('btn-add-player').click();
+          return;
+        }
+        document.getElementById('submit').textContent = 'Сохранено';
+        document.getElementById('submit').classList.replace('btn-primary', 'btn-success');
+        document.getElementById('btn-add-player').style.display = 'inline';
       });
 
       return false;
