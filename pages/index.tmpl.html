@@ -1,0 +1,177 @@
+{{define "content"}}<div class="container">
+        <h2>Список игр</h2>
+        <div class="row">
+            <div class="col">
+                <div class="form-group">
+                    <a href="edit-game.html">Добавить игру</a>
+                </div>
+                <div class="form-group">
+                    <input id="game-filter-input" placeholder="Поиск" type="text" class="form-control">
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <ul id="game-list" class="no-bullets game-list"></ul>
+        </div>
+
+        <br>
+
+        <div class="row">
+            <div class="col">
+                <div class="dropdown">
+                    <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                        Экспорт\Импорт
+                    </button>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" onclick="return downloadAsCsv(event);" href="#">Сохранить как csv</a>
+                        <a class="dropdown-item" onclick="return exportDBClick(event);" href="#">Экспорт json</a>
+                        <a class="dropdown-item" onclick="return importDBClick(event);" href="#">Импорт json</a>
+                    </div>
+                </div>
+                <input id="importDBInput" type="file" class="invisible" />
+            </div>
+        </div>
+
+    </div>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameListContainer = document.getElementById('game-list');
+
+        const filterChangeEvent = debounceFn(function (event) {
+            console.log(event.target.value);
+            renderGameList(event.target.value.toLowerCase());
+        }, 200);
+
+        document.getElementById('game-filter-input').addEventListener("keyup", filterChangeEvent);
+
+        function renderGameList(gameFilterValue = '') {
+            openDB().then(async (db) => {
+                const games = await db.getAll('games');
+                const gamesByTitle = [];
+                for (const game of games) {
+                    if (!gamesByTitle[game.gameTitle]) {
+                        gamesByTitle[game.gameTitle] = [];
+                    }
+                    gamesByTitle[game.gameTitle].push(game);
+                }
+
+                const titles = Object.keys(gamesByTitle);
+                titles.sort();
+
+                let lastTitle = '';
+                gameListContainer.innerHTML = '';
+                for (const gameTitle of titles) {
+                    if (gameFilterValue !== '' && !gameTitle.toLowerCase().includes(gameFilterValue)) {
+                        continue;
+                    }
+                    const playersByName = [];
+                    const games = gamesByTitle[gameTitle];
+                    for (const game of games) {
+                        for (const player of (game.players ?? [])) {
+                            playersByName[player.name] ??= [];
+                            playersByName[player.name].push(player);
+                        }
+                    }
+
+                    const item = document.createElement('li');
+                    item.innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i> ${gameTitle}</a> `
+                        + `<a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i> Добавить</a> `
+                        + `<br>Количество игр: ${games.length}<br>`;
+
+                    for (const playerName in playersByName) {
+                        if (Object.hasOwnProperty.call(playersByName, playerName)) {
+                            const players = playersByName[playerName];
+                            const winCount = getWinners({ players }).length;
+                            const loseCount = getLosers({ players }).length;
+                            const drawCount = getDraws({ players }).length;
+                            item.innerHTML += `${playerName}: <span style="color:green">${winCount}</span> / <span style="color:red">${loseCount}</span>${!drawCount ? '' : ` / ${drawCount}`}<br>`;
+                        }
+                    }
+                    item.innerHTML += `<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small> <br><hr>`
+
+                    if (gameTitle[0] !== lastTitle[0]) {
+                        item.innerHTML = `<strong class="titleMarker">${gameTitle[0]}</strong> ` + item.innerHTML;
+                    }
+
+                    lastTitle = gameTitle;
+                    gameListContainer.appendChild(item);
+                }
+            });
+        }
+
+        function deleteGameClick(event, gameId) {
+            if (confirm(`Удалить игру?`)) {
+                deleteGame(gameId, () => document.querySelector(`[data-game-id="${gameId}"]`).remove());
+            }
+        }
+
+        function downloadAsCsv(event) {
+            event.preventDefault();
+            openDB().then(db => {
+                db.getAll('games').then(games => {
+                    const rows = [
+                        ["id", "Название игры", "Дата игры", "Длительность", "Теги", "Имя игрока", "Результат", "Очки", "Игрок - теги"],
+                    ];
+                    games.forEach(game => {
+                        let winners = '';
+                        if (game.players && game.players.length > 0) {
+                            winners = getWinnersNames(game);
+                        } else {
+                            game.players = [{}];
+                        }
+                        game.players.forEach((player, idx) => {
+                            rows.push([
+                                game.id,
+                                escapeCSVString(game.gameTitle),
+                                game.gameDate,
+                                game.gameDuration,
+                                escapeCSVString(game.tags ?? ''),
+                                player.name ?? '',
+                                player.result ?? '',
+                                player.score ?? '',
+                                player.tags ?? '',
+                            ]);
+                        });
+                    });
+                    let csvContent = rows.map(e => e.join(',')).join("\n");
+
+                    const file = new File([csvContent], 'my-games.csv', {
+                        type: 'text/csv',
+                    });
+                    downloadFile(file);
+                });
+                return false;
+            });
+            return false;
+        }
+
+        function exportDBClick(event) {
+            event.preventDefault();
+            (async () => {
+                const data = await exportDb();
+                const file = new File([JSON.stringify(data)], 'db1.json', {
+                    type: 'application/json',
+                });
+                downloadFile(file);
+            })();
+            return false;
+        }
+
+        function importDBClick(event) {
+            event.preventDefault();
+            document.getElementById('importDBInput').click();
+            return false;
+        }
+
+        renderGameList(document.getElementById('game-filter-input').value);
+
+        document.getElementById('importDBInput').addEventListener('change', (event) => {
+            var reader = new FileReader();
+            reader.onload = (event) => {
+                const dbData = JSON.parse(event.target.result);
+                importDb(dbData).then(() => window.location.reload());
+            };
+            reader.readAsText(event.target.files[0]);
+        });
+    </script>{{end}}

@@ -1,0 +1,52 @@
+{{define "content"}}<div class="container">
+        <h2 id="pageTitle">Список игр</h2>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
+                <li class="breadcrumb-item active" aria-current="page"><a id="newGameLink"
+                        href="edit-game.html">Добавить игру</a></li>
+            </ol>
+        </nav>
+
+        <div class="row">
+            <ul id="game-list" class=""></ul>
+        </div>
+    </div>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameListContainer = document.getElementById('game-list');
+        const editTitle = urlParams.get('editTitle');
+        openDB().then(async (db) => {
+            const games = await db.getAll('games');
+            let filteredGames = games;
+            if (editTitle) {
+                document.getElementById('newGameLink').href += `?title=${editTitle}`;
+                document.getElementById('pageTitle').textContent += ` ${editTitle}`;
+                filteredGames = games.filter(g => g.gameTitle === editTitle);
+            }
+
+            for (const game of filteredGames) {
+                const winners = (game.players || [])
+                    .filter(player => player.result === 'winner');
+                const winnersNames = winners.map(player => player.name).join(', ');
+                const item = document.createElement('li');
+
+                item.setAttribute('data-game-id', game.id);
+                item.innerHTML = `<a href="edit-game.html?gameId=${game.id}"><i class="bi bi-pencil"></i> ${game.gameDate}</a> `
+                    + game.gameTitle
+                    + (parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${game.gameDuration}` : '')
+                    + (winnersNames.length > 0 ? `<br>Победители: ${winnersNames}` : '')
+                    + `<br> <a href="#" onclick="return deleteGameClick(event, ${game.id})">Удалить</a>`;
+                gameListContainer.appendChild(item);
+            }
+        });
+
+        function deleteGameClick(event, gameId) {
+            if (confirm(`Удалить игру?`)) {
+                (async ()=> {
+                    await deleteGame(gameId);
+                    document.querySelector(`[data-game-id="${gameId}"]`).remove();
+                })();
+            }
+        }
+    </script>{{end}}

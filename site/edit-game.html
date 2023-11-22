@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="1.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css"
+        integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/idb@7/build/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct"
+        crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="css/main.css">
+    <script src="js/main.js"></script>
+</head>
+
+<body>
+    <div class="container">
+    <h2>Добавить партию</h2>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
+        <li class="breadcrumb-item active"><a id="listOfGamesLink" href="edit-games.html">Список игр</a></li>
+      </ol>
+    </nav>
+
+    <div class="mb-3 row fixed-top" id="status-alert"></div>
+    <form id="new-game-form">
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="gameTitle">Название игры</label>
+        <div class="col-8">
+          <input id="gameTitle" name="gameTitle" placeholder="Монополия" type="text" class="form-control"
+            required="required">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="gameDate" class="col-4 col-form-label">Дата игры</label>
+        <div class="col-8">
+          <input id="gameDate" name="gameDate" type="date" class="form-control" required="required">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="gameDuration" class="col-4 col-form-label">Длительность партии (в минутах)</label>
+        <div class="col-8">
+          <input id="gameDuration" name="gameDuration" type="number" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="text" class="col-4 col-form-label">Количество игроков</label>
+        <div class="col-8">
+          <input id="playersCount" name="playersCount" type="number" min="1" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="tags" class="col-4 col-form-label">Теги</label>
+        <div class="col-8">
+          <input id="tags" name="tags" placeholder="tag1,tag2,tag3" type="text" class="form-control"
+            aria-describedby="tagsHelpBlock">
+          <span id="tagsHelpBlock" class="form-text text-muted">tag1,tag2,tag3</span>
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="offset-4 col-8">
+          <button id="submit" name="submit" type="submit" class="btn btn-primary"
+            onclick="return saveGameClick(event);">Сохранить</button>
+          <button id="submitAndAdd" name="submit" type="submit" class="btn btn-primary"
+            onclick="return saveGameClick(event, true);"><span>Сохранить <br> и добавить игрока</span></button>
+        </div>
+      </div>
+    </form>
+    <div class="form-group row">
+      <div class="col-8">
+        <a id="btn-add-player" style="display: none;" href="#">Добавить игрока</a>
+      </div>
+    </div>
+    <div class="form-group row">
+      <div class="col-8">
+        <table id="player-table" class="table">
+          <thead>
+            <th>Имя</th>
+            <th>Результат</th>
+            <th>Кол-во очков</th>
+            <th>Теги</th>
+            <th></th>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const gameId = getGameIdFromUrl();
+    if (gameId) {
+      (async () => {
+        const game = await loadGameById(gameId);
+        if (game) {
+          document.getElementById('gameTitle').value = game.gameTitle;
+          document.getElementById('gameDate').value = game.gameDate;
+          document.getElementById('gameDuration').value = parseInt(game.gameDuration);
+          document.getElementById('tags').value = game.tags;
+          document.getElementById('playersCount').value = parseInt(game.playersCount);
+
+          document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + gameId;
+          document.getElementById('btn-add-player').style.display = 'inline';
+
+          const playerListEl = document.getElementById('player-list');
+          const playerTableEl = document.getElementById('player-table').getElementsByTagName('tbody')[0];
+
+          const players = game.players || [];
+          for (let idx = 0; idx < players.length; idx++) {
+            const player = players[idx];
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-player-idx', idx);
+            tr.innerHTML += `<td>${player.name}</td>`;
+            tr.innerHTML += `<td>${player.result}</td>`;
+            tr.innerHTML += `<td>${player.score ? player.score : '-'}</td>`;
+            tr.innerHTML += `<td>${player.tags ? player.tags : '-'}</td>`;
+            tr.innerHTML += `<td><a href="#" onclick="return delPlayerClick(event, ${idx});">удалить</a></td>`;
+
+            playerTableEl.appendChild(tr);
+          }
+
+          document.getElementById('listOfGamesLink').href += `?editTitle=${game.gameTitle}`;
+        }
+      })();
+    } else {
+      const urlParams = new URLSearchParams(window.location.search);
+      const gameTitle = urlParams.get('title');
+      if (gameTitle) {
+        document.getElementById('gameTitle').value = gameTitle;
+        document.getElementById('listOfGamesLink').href += `?editTitle=${gameTitle}`;
+      }
+      if (document.getElementById('gameDate').value == '') {
+        document.getElementById('gameDate').valueAsDate = new Date();
+      }
+    }
+
+    function delPlayerClick(event, plIdx) {
+      event.stopPropagation();
+      if (confirm(`Удалить игрока?`)) {
+        updateGameId(gameId, (game) => {
+          game.players.splice(plIdx, 1);
+          return game;
+        }, () => {
+          document.querySelector(`[data-player-idx="${plIdx}"]`).remove();
+        });
+      }
+
+      return false;
+    }
+
+    function saveGameClick(event, addPlayerAfterCreate) {
+      event.stopPropagation();
+      const isValid = document.getElementById('new-game-form').reportValidity();
+      if (!isValid) {
+        return false;
+      }
+      document.getElementById('submit').disabled = true;
+
+      const data = {
+        gameTitle: document.getElementById('gameTitle').value,
+        gameDate: document.getElementById('gameDate').value,
+        gameDuration: document.getElementById('gameDuration').value,
+        playersCount: document.getElementById('playersCount').value,
+        tags: document.getElementById('tags').value,
+      };
+
+      if (gameId) {
+        (async () => {
+          await updateGameId(gameId, (game) => {
+            data.id = game.id;
+            data.players = game.players;
+            return data;
+          });
+          document.getElementById('submit').disabled = false;
+        })();
+        return false;
+      }
+
+      openDB().then(async (db) => {
+        const tx = db.transaction(['games', 'settings'], 'readwrite');
+        const gamesStore = tx.objectStore('games');
+        const insertedId = await gamesStore.add(data);
+        document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + insertedId;
+        await incDBVersion(tx);
+        await tx.done;
+        if (addPlayerAfterCreate) {
+          document.getElementById('btn-add-player').click();
+          return;
+        }
+        document.getElementById('submit').textContent = 'Сохранено';
+        document.getElementById('submit').classList.replace('btn-primary', 'btn-success');
+        document.getElementById('btn-add-player').style.display = 'inline';
+      });
+
+      return false;
+    }
+  </script>
+</body>
+
+</html>
