@@ -2,7 +2,16 @@
         <h2>Рулетка</h2>
         <div class="row">
             <div class="col">
-                <form>
+                <form id="game-filter-form">
+                    <div class="form-group form-row">
+                        <div class="input-group col-6 col-sm-4">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text"><span class="bi bi-person-fill"></span></div>
+                            </div>
+                            <input placeholder="Игроков" type="number" class="form-control"
+                                id="players-filter-input" required="required">
+                        </div>
+                    </div>
                     <div class="form-group form-row">
                         <div class="input-group col-sm-4 col-6">
                             <div class="input-group-prepend">
@@ -17,15 +26,6 @@
                             </div>
                             <input placeholder="Время игры до" type="number" class="form-control"
                                 id="max-duration-filter-input">
-                        </div>
-                    </div>
-                    <div class="form-group form-row">
-                        <div class="input-group col-6 col-sm-4">
-                            <div class="input-group-prepend">
-                                <div class="input-group-text"><span class="bi bi-person-fill"></span></div>
-                            </div>
-                            <input placeholder="Игроков" type="number" class="form-control"
-                                id="players-filter-input">
                         </div>
                     </div>
                     <div class="form-group form-row">
@@ -89,9 +89,13 @@
 
         const gameFilterObj = {
             gameData: [],
+            form: document.getElementById('game-filter-form'),
             minDuration: ProxyInput(document.getElementById('min-duration-filter-input'), {type: 'int'}),
             maxDuration: ProxyInput(document.getElementById('max-duration-filter-input'), {type: 'int'}),
             players: ProxyInput(document.getElementById('players-filter-input'), {type: 'int'}),
+            isFormValid: function() {
+                return this.form.reportValidity();
+            },
             gameFilter: function(game, minDuration, maxDuration, players) {
                 if (maxDuration !== null && players > 0) {
                     const durationOnPlayer = maxDuration / players;
@@ -111,6 +115,10 @@
             },
             pickRandomGameHandler: function(event) {
                 event.preventDefault();
+                event.stopPropagation();
+                if (!this.isFormValid()) {
+                    return false;
+                }
                 const filtered = gameData.filter((game) => this.gameFilter(
                     game,
                     this.minDuration.value,
@@ -124,6 +132,8 @@
             },
             submitFilterGamesHandler: function(event) {
                 event.preventDefault();
+                event.stopPropagation();
+                
                 renderGames(this.gameData, (game) => this.gameFilter(
                     game,
                     this.minDuration.value,
