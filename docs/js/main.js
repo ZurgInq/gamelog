@@ -1,11 +1,48 @@
 function debounceFn(fn, wait) {
     let timeoutId = null;
-    return function() {
+    return function () {
         if (timeoutId) {
             clearTimeout(timeoutId);
         }
         timeoutId = setTimeout(() => fn(...arguments), wait);
     }
+}
+
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min) + min);
+}
+
+function strToInt(value) {
+    const parsed = parseInt(value);
+    if (parsed === NaN) {
+        return null;
+    }
+    return parsed;
+}
+
+function ProxyInput(inputElement, options = {}) {
+    const el = inputElement;
+    return new Proxy({
+        value: undefined,
+    }, {
+        get(target, prop, receiver) {
+            if (prop === 'value') {
+                if (options.type === 'int') {
+                    return strToInt(el.value);
+                }
+                return el.value;
+            }
+            return target[prop];
+        },
+        set(target, property, value, receiver) {
+            if (property === 'value') {
+                el.value = value;
+            }
+            target[property] = value;
+        }
+    });
 }
 
 async function openDB() {

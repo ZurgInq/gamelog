@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var destDir = "site"
+var destDir = "docs"
 var pagesDir = "pages"
 var layoutsDir = "layouts"
 
@@ -22,7 +22,7 @@ func main() {
 
 	for _, info := range dirInfo {
 		if info.IsDir() || !strings.HasSuffix(info.Name(), ".tmpl.html") {
-			log.Printf("Skip file %s\n", info.Name())
+			log.Printf("Skip file %s\n (wrong extension)", info.Name())
 			continue
 		}
 		templateName := info.Name()
