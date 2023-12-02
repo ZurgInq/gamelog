@@ -62,9 +62,6 @@ async function openDB() {
 }
 
 async function incDBVersion(tx) {
-    const settingsStore = tx.objectStore('settings');
-    const version = await settingsStore.get('version');
-    return settingsStore.put(Number.isInteger(version) ? version + 1 : 1, 'version');
 }
 
 async function loadGameById(gameId) {
@@ -77,7 +74,6 @@ async function updateGameId(gameId, update) {
     const gamesStore = tx.objectStore('games');
     const game = await gamesStore.get(gameId);
     await gamesStore.put(update(game));
-    await incDBVersion(tx);
     return tx.done;
 }
 
@@ -86,7 +82,6 @@ async function deleteGame(gameId) {
     const tx = db.transaction(['games', 'settings'], 'readwrite');
     const gamesStore = tx.objectStore('games');
     await gamesStore.delete(gameId);
-    await incDBVersion(tx);
     return tx.done;
 }
 
@@ -124,6 +119,45 @@ async function importDb(dbData) {
     }
 
     return tx.done;
+}
+
+async function getTagsByGameTitle(gameTitle) {
+    const db = await openDB();
+    const tags = [];
+    const games = await db.getAll('games');
+    for (const game of games) {
+        if (game.gameTitle === gameTitle) {
+            (game.tags || '').split(',').map((tag) => tags.push(tag));
+        }
+    }
+    return tags.
+        filter(tag => tag !== '').
+        filter((value, index, array) => array.indexOf(value) === index);
+}
+
+async function getPlayerTagsByGameTitle(gameTitle) {
+    const db = await openDB();
+    const tags = [];
+    const games = await db.getAll('games');
+    for (const game of games) {
+        if (game.gameTitle === gameTitle) {
+            for (const player of (game.players || [])) {
+                (player.tags || '').split(',').map((tag) => tags.push(tag));
+            }
+        }
+    }
+    return tags.
+        filter(tag => tag !== '').
+        filter((value, index, array) => array.indexOf(value) === index);
+}
+
+function getIntParamFromUrl(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const value = parseInt(urlParams.get(param));
+    if (isNaN(value)) {
+        return null;
+    }
+    return value;
 }
 
 function getGameIdFromUrl() {

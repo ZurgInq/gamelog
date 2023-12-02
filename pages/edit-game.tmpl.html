@@ -37,8 +37,7 @@
       <div class="form-group row">
         <label for="tags" class="col-4 col-form-label">Теги</label>
         <div class="col-8">
-          <input id="tags" name="tags" placeholder="tag1,tag2,tag3" type="text" class="form-control"
-            aria-describedby="tagsHelpBlock">
+          <input id="tags" name="tags" placeholder="tag1,tag2,tag3" type="text" class="form-control">
           <span id="tagsHelpBlock" class="form-text text-muted">tag1,tag2,tag3</span>
         </div>
       </div>
@@ -75,6 +74,24 @@
 
   <script>
     const gameId = getGameIdFromUrl();
+
+    function renderTags(tags) {
+      const tagsEl = document.getElementById('tagsHelpBlock').parentElement;
+      tags.forEach((tag) => {
+        const el = document.createElement('a');
+        el.href = '#';
+        el.innerText = tag;
+        el.style.marginRight = '0.5em';
+        el.onclick = (event) => { 
+          event.preventDefault();
+          const tag = event.currentTarget.innerText;
+          this.tags.value += this.tags.value ? `,${tag}` : tag;
+          return false;
+        };
+        tagsEl.appendChild(el);
+      });
+    }
+
     if (gameId) {
       (async () => {
         const game = await loadGameById(gameId);
@@ -88,6 +105,9 @@
           document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + gameId;
           document.getElementById('btn-add-player').style.display = 'inline';
 
+          const tags = await getTagsByGameTitle(game.gameTitle);
+          renderTags(tags);
+
           const playerListEl = document.getElementById('player-list');
           const playerTableEl = document.getElementById('player-table').getElementsByTagName('tbody')[0];
 
@@ -100,7 +120,10 @@
             tr.innerHTML += `<td>${player.result}</td>`;
             tr.innerHTML += `<td>${player.score ? player.score : '-'}</td>`;
             tr.innerHTML += `<td>${player.tags ? player.tags : '-'}</td>`;
-            tr.innerHTML += `<td><a href="#" onclick="return delPlayerClick(event, ${idx});">удалить</a></td>`;
+            tr.innerHTML += `<td>
+              <a href="edit-player.html?gameId=${gameId}&playerId=${idx}"><i class="bi bi-pencil"></i> Изменить</a>
+              <a href="#" onclick="return delPlayerClick(event, ${idx});"><i class="bi bi-trash"></i> Удалить</a>
+            </td>`;
 
             playerTableEl.appendChild(tr);
           }
@@ -114,6 +137,9 @@
       if (gameTitle) {
         document.getElementById('gameTitle').value = gameTitle;
         document.getElementById('listOfGamesLink').href += `?editTitle=${gameTitle}`;
+        getTagsByGameTitle(gameTitle).then((tags) => {
+          renderTags(tags);
+        });
       }
       if (document.getElementById('gameDate').value == '') {
         document.getElementById('gameDate').valueAsDate = new Date();
@@ -126,9 +152,7 @@
         updateGameId(gameId, (game) => {
           game.players.splice(plIdx, 1);
           return game;
-        }, () => {
-          document.querySelector(`[data-player-idx="${plIdx}"]`).remove();
-        });
+        }).then(() => window.location.reload());
       }
 
       return false;
@@ -167,7 +191,6 @@
         const gamesStore = tx.objectStore('games');
         const insertedId = await gamesStore.add(data);
         document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + insertedId;
-        await incDBVersion(tx);
         await tx.done;
         if (addPlayerAfterCreate) {
           document.getElementById('btn-add-player').click();

@@ -67,8 +67,7 @@
       <div class="form-group row">
         <label for="tags" class="col-4 col-form-label">Теги</label>
         <div class="col-8">
-          <input id="tags" name="tags" placeholder="tag1,tag2,tag3" type="text" class="form-control"
-            aria-describedby="tagsHelpBlock">
+          <input id="tags" name="tags" placeholder="tag1,tag2,tag3" type="text" class="form-control">
           <span id="tagsHelpBlock" class="form-text text-muted">tag1,tag2,tag3</span>
         </div>
       </div>
@@ -85,7 +84,63 @@
 
   <script>
     const gameId = getGameIdFromUrl();
+    const playerId = getIntParamFromUrl('playerId');
     document.getElementById('game-link').href += gameId;
+
+    const formObj = {
+      playerName: ProxyInput(document.getElementById('playerName')),
+      score: ProxyInput(document.getElementById('score')),
+      tags: ProxyInput(document.getElementById('tags')),
+      addTagClick(event) {
+        event.preventDefault();
+        const tag = event.currentTarget.innerText;
+        this.tags.value += this.tags.value ? `,${tag}` : tag;
+        return false;
+      },
+      async loadForm() {
+        const game = await loadGameById(gameId);
+        if (game) {
+          const tagsEl = document.getElementById('tagsHelpBlock').parentElement;
+          const tags = await getPlayerTagsByGameTitle(game.gameTitle);
+          tags.forEach((tag) => {
+            const el = document.createElement('a');
+            el.href = '#';
+            el.innerText = tag;
+            el.style.marginRight = '0.5em';
+            el.onclick = (event) => { this.addTagClick(event) };
+            tagsEl.appendChild(el);
+          });
+        }
+      },
+    };
+    formObj.loadForm();
+
+    if (gameId && playerId !== null) {
+      
+      (async () => {
+        const game = await loadGameById(gameId);
+        if (game && game.players && game.players[playerId]) {
+          const player = game.players[playerId];
+          document.getElementById('playerName').value = player.name;
+          document.getElementById('score').value = player.score;
+          document.getElementById('tags').value = player.tags;
+          const result = player.result;
+          switch (result) {
+            case 'winner':
+              document.getElementById('result_0').checked = true;
+              break;
+            case 'loser':
+              document.getElementById('result_1').checked = true;
+              break;
+            case 'draw':
+              document.getElementById('result_0').checked = true;
+              break;  
+            default:
+              break;
+          }
+        }
+      })();
+    }
 
     function savePlayer(event, addOther) {
       const isValid = document.getElementById('new-player-form').reportValidity();
@@ -108,9 +163,12 @@
         if (!game.players) {
           game.players = [];
         }
-        game.players.push(data);
+        if (playerId >= 0 && game.players[playerId]) {
+          game.players[playerId] = data;
+        } else {
+          game.players.push(data);
+        }
         await gameStore.put(game);
-        await incDBVersion(tx);
         await tx.done;
 
         if (addOther) {

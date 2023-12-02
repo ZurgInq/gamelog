@@ -156,9 +156,7 @@
             submitFilterGamesHandler: function(event) {
                 event.preventDefault();
                 event.stopPropagation();
-                if (!this.isFormValid()) {
-                    return false;
-                }
+                
                 renderGames(this.gameData, (game) => this.gameFilter(
                     game,
                     this.minDuration.value,
