@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -11,6 +13,7 @@ import (
 var destDir = "docs"
 var pagesDir = "pages"
 var layoutsDir = "layouts"
+var jsTmplPrefix = "js:"
 
 func main() {
 	var output *os.File
@@ -32,6 +35,33 @@ func main() {
 				layoutsDir+"/layout.tmpl.html",
 			),
 		)
+
+		jsTemplates := ""
+		for _, t := range tmpl.Templates() {
+			tName := t.Name()
+			if strings.HasPrefix(t.Name(), jsTmplPrefix) {
+				jsTmplName := strings.TrimPrefix(tName, jsTmplPrefix)
+				var b bytes.Buffer
+				cloned, err := tmpl.Clone()
+				if err != nil {
+					log.Fatalln(err)
+				}
+				if err = cloned.ExecuteTemplate(&b, tName, nil); err != nil {
+					log.Fatal(err)
+				}
+				jsTmpl, err := ioutil.ReadAll(&b)
+				if err != nil {
+					log.Fatalln(err)
+				}
+				jsTemplates = jsTemplates + fmt.Sprintf("%s { return `%s`; },", jsTmplName, jsTmpl)
+			}
+		}
+		_, err := tmpl.Parse(`{{define "js-templates"}}<script>
+			const templates = {` + jsTemplates + `}
+	</script>{{end}}`)
+		if err != nil {
+			log.Fatalln(err)
+		}
 
 		pageName := strings.TrimSuffix(templateName, ".tmpl.html") + ".html"
 		dest := destDir + "/" + pageName

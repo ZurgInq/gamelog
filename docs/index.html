@@ -58,11 +58,25 @@
 
     </div>
     <script>
+			const templates = {gameItem(gameTitle, gamesCount, players, addTitleMarker) { return `
+<li>
+    ${addTitleMarker ? `<strong class="titleMarker">${gameTitle[0]}</strong>` : ''}
+    <a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i> ${gameTitle}</a>
+    <a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i> Добавить</a> <br>
+    Количество игр: ${gamesCount}<br>
+    ${players.map((player) => {
+        return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : player.drawCount}<br>`;
+    })}
+    <small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
+    <hr>
+</li>
+`; },}
+	</script>
+    <script>
         const urlParams = new URLSearchParams(window.location.search);
         const gameListContainer = document.getElementById('game-list');
 
         const filterChangeEvent = debounceFn(function (event) {
-            console.log(event.target.value);
             renderGameList(event.target.value.toLowerCase());
         }, 200);
 
@@ -96,37 +110,22 @@
                             playersByName[player.name].push(player);
                         }
                     }
-
-                    const item = document.createElement('li');
-                    item.innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i> ${gameTitle}</a> `
-                        + `<a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i> Добавить</a> `
-                        + `<br>Количество игр: ${games.length}<br>`;
-
-                    for (const playerName in playersByName) {
-                        if (Object.hasOwnProperty.call(playersByName, playerName)) {
-                            const players = playersByName[playerName];
-                            const winCount = getWinners({ players }).length;
-                            const loseCount = getLosers({ players }).length;
-                            const drawCount = getDraws({ players }).length;
-                            item.innerHTML += `${playerName}: <span style="color:green">${winCount}</span> / <span style="color:red">${loseCount}</span>${!drawCount ? '' : ` / ${drawCount}`}<br>`;
-                        }
-                    }
-                    item.innerHTML += `<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small> <br><hr>`
-
-                    if (gameTitle[0] !== lastTitle[0]) {
-                        item.innerHTML = `<strong class="titleMarker">${gameTitle[0]}</strong> ` + item.innerHTML;
-                    }
-
+                    gameListContainer.insertAdjacentHTML('beforeend', templates.gameItem(
+                        gameTitle,
+                        games.length,
+                        playersByName.map((player) => {
+                            return {
+                                name: player.name,
+                                winCount: getWinners({ players: playersByName[playerName] }).length,
+                                loseCount: getLosers({ players: playersByName[playerName] }).length,
+                                drawCount: getDraws({ players: playersByName[playerName] }).length,
+                            }
+                        }),
+                        gameTitle[0] !== lastTitle[0],
+                    ));
                     lastTitle = gameTitle;
-                    gameListContainer.appendChild(item);
                 }
             });
-        }
-
-        function deleteGameClick(event, gameId) {
-            if (confirm(`Удалить игру?`)) {
-                deleteGame(gameId, () => document.querySelector(`[data-game-id="${gameId}"]`).remove());
-            }
         }
 
         function downloadAsCsv(event) {
