@@ -36,6 +36,19 @@
         </div>
     </div>
     <script>
+			const templates = {gameItem(game, winnersNames) { return `
+<li data-game-id="${game.id}" class="mb-2">
+    <a href="edit-game.html?gameId=${game.id}">
+        <i class="bi bi-pencil"></i> ${game.gameDate}</a>
+        ${game.gameTitle}${game.tags > '' ? ` <i>(${game.tags})</i>` : ''} 
+        ${(parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${game.gameDuration}` : '')}
+        ${(winnersNames.length > 0 ? `<br>Победители: ${winnersNames}` : '')}
+        <br>
+        <a href="#" data-game-id="${game.id}" onclick="deleteGameClick(event);" >Удалить</a>
+</li>
+`; },}
+	</script>
+    <script>
         const urlParams = new URLSearchParams(window.location.search);
         const gameListContainer = document.getElementById('game-list');
         const editTitle = urlParams.get('editTitle');
@@ -52,25 +65,20 @@
                 const winners = (game.players || [])
                     .filter(player => player.result === 'winner');
                 const winnersNames = winners.map(player => player.name).join(', ');
-                const item = document.createElement('li');
-
-                item.setAttribute('data-game-id', game.id);
-                item.innerHTML = `<a href="edit-game.html?gameId=${game.id}"><i class="bi bi-pencil"></i> ${game.gameDate}</a> `
-                    + game.gameTitle
-                    + (parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${game.gameDuration}` : '')
-                    + (winnersNames.length > 0 ? `<br>Победители: ${winnersNames}` : '')
-                    + `<br> <a href="#" onclick="return deleteGameClick(event, ${game.id})">Удалить</a>`;
-                gameListContainer.appendChild(item);
+                gameListContainer.insertAdjacentHTML('beforeend', templates.gameItem(game, winnersNames, game.tags));
             }
         });
 
-        function deleteGameClick(event, gameId) {
+        function deleteGameClick(event) {
+            event.preventDefault();
+            const gameId = event.currentTarget.getAttribute('data-game-id');
             if (confirm(`Удалить игру?`)) {
                 (async ()=> {
                     await deleteGame(gameId);
                     document.querySelector(`[data-game-id="${gameId}"]`).remove();
                 })();
             }
+            return false;
         }
     </script>
 </body>

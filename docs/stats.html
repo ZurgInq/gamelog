@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="1.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css"
+        integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/idb@7/build/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct"
+        crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="css/main.css">
+    <script src="js/main.js"></script>
+</head>
+
+<body>
+    
+    <div class="container">
+        <h2>Статистика</h2>
+        <div class="row mb-3">
+            <div data-role="most-played-game-alltime" class="col">
+                
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Самая частая игра за всё время</h5>
+        <p data-role="card-text" class="card-text"></p>    
+    </div>
+</div>
+
+            </div>
+            <div data-role="most-played-game-month" class="col">
+                
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Самая частая игра за месяц</h5>
+        <p data-role="card-text" class="card-text"></p>    
+    </div>
+</div>
+
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div data-role="most-winrate-alltime" class="col">
+                
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Лучший winrate всё время</h5>
+        <p data-role="card-text" class="card-text"></p>    
+    </div>
+</div>
+
+            </div>
+            <div data-role="most-winrate-month" class="col">
+                
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Лучший winrate за месяц</h5>
+        <p data-role="card-text" class="card-text"></p>    
+    </div>
+</div>
+
+            </div>
+        </div>
+    </div>
+    <script>
+			const templates = {}
+	</script>
+    <script>
+        function calcWinLoses(bestWinRates, game) {
+            const gTitle = game.gameTitle;
+            bestWinRates[gTitle] ??= {};
+            (game.players || []).forEach((player) => {
+                bestWinRates[gTitle][player.name] ??= {
+                    count: 0,
+                    wins: 0,
+                    loses: 0,
+                };
+                bestWinRates[gTitle][player.name]['count']++;
+                if (player.result === 'winner') {
+                    bestWinRates[gTitle][player.name]['wins']++;
+                } else if(player.result === 'loser') {
+                    bestWinRates[gTitle][player.name]['loses']++;
+                }
+            });
+            return bestWinRates;
+        }
+
+        function calcPlayedGamesByTitle(byTitle, game) {
+            byTitle[game.gameTitle] ??= 0;
+            byTitle[game.gameTitle]++;
+            return byTitle;
+        }
+
+        function calcWinRates(games) {
+            games = games.filter((game) => {
+                const players = game.players || [];
+                if (players.length <= 1) {
+                    return false;
+                }
+                return !game.players.every((pl) => pl.result === 'winner');
+            });
+
+            const winLoses = games.reduce(calcWinLoses, {});
+            const bestWinrates = {};
+            for (const [title, player] of Object.entries(winLoses)) {
+                for (const [playerName, rates] of Object.entries(player)) {
+                    const winRate = Math.round((rates['wins'] / rates['count'])*100);
+                    bestWinrates[playerName] ??= {winRate: 0, title: ''};
+                    if (winRate > bestWinrates[playerName].winRate) {
+                        bestWinrates[playerName] = {title, winRate}
+                    }
+                }
+            }
+
+            return bestWinrates;
+        }
+
+        (async() => {
+            const db = await openDB();
+            const gamesAlltime = await db.getAll('games');
+
+            const now = Date.now();
+            const monthPeriodMSec = 60*60*24*30*1000;
+            const lastMonthGames = gamesAlltime.filter((game) => game.gameDate && Date.parse(game.gameDate) + 1*monthPeriodMSec >= now);
+            
+            const mostPlayedGameAlltime = Object.entries(
+                gamesAlltime.reduce(calcPlayedGamesByTitle, {})
+            ).reduce((a, b) => a[1] > b[1] ? a : b, -Infinity);
+
+            let gameTitle = mostPlayedGameAlltime[0];
+            let gamesCount = mostPlayedGameAlltime[1];
+            document
+                .querySelector(`[data-role="most-played-game-alltime"]`)
+                .querySelector(`[data-role="card-text"]`)
+                .innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}">${gameTitle}</a> (партий: ${gamesCount})`;
+            
+            //
+            const mostPlayedGameMonth = Object.entries(
+                lastMonthGames.reduce(calcPlayedGamesByTitle, {})
+            ).reduce((a, b) => a[1] > b[1] ? a : b, -Infinity);
+
+            gameTitle = mostPlayedGameMonth[0];
+            gamesCount = mostPlayedGameMonth[1];
+            document
+                .querySelector(`[data-role="most-played-game-month"]`)
+                .querySelector(`[data-role="card-text"]`)
+                .innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}">${gameTitle}</a> (партий: ${gamesCount})`;
+            
+            // 
+            const bestWinratesMonthTime = calcWinRates(lastMonthGames);
+            let bestWinrateText = '';
+            for (const [plName, data] of Object.entries(bestWinratesMonthTime)) {
+                bestWinrateText += `${plName}: <a href="edit-games.html?editTitle=${data.title}">${data.title}</a> (${data.winRate}%)<br>`;
+            }
+            document
+                .querySelector(`[data-role="most-winrate-month"]`)
+                .querySelector(`[data-role="card-text"]`)
+                .innerHTML = bestWinrateText;
+
+            //
+            const bestWinratesAllTime = calcWinRates(gamesAlltime);
+            bestWinrateText = '';
+            for (const [plName, data] of Object.entries(bestWinratesAllTime)) {
+                bestWinrateText += `${plName}: <a href="edit-games.html?editTitle=${data.title}">${data.title}</a> (${data.winRate}%)<br>`;
+            }
+            document
+                .querySelector(`[data-role="most-winrate-alltime"]`)
+                .querySelector(`[data-role="card-text"]`)
+                .innerHTML = bestWinrateText;
+        })();
+    </script>
+
+</body>
+
+</html>

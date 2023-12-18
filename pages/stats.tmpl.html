@@ -1,0 +1,134 @@
+{{define "cardGame"}}
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">{{ .Title }}</h5>
+        <p data-role="card-text" class="card-text"></p>    
+    </div>
+</div>
+{{end}}
+{{define "content"}}
+    <div class="container">
+        <h2>Статистика</h2>
+        <div class="row mb-3">
+            <div data-role="most-played-game-alltime" class="col">
+                {{template "cardGame" (args "Title" "Самая частая игра за всё время")}}
+            </div>
+            <div data-role="most-played-game-month" class="col">
+                {{template "cardGame" (args "Title" "Самая частая игра за месяц")}}
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div data-role="most-winrate-alltime" class="col">
+                {{template "cardGame" (args "Title" "Лучший winrate всё время")}}
+            </div>
+            <div data-role="most-winrate-month" class="col">
+                {{template "cardGame" (args "Title" "Лучший winrate за месяц")}}
+            </div>
+        </div>
+    </div>
+    {{template "js-templates"}}
+    <script>
+        function calcWinLoses(bestWinRates, game) {
+            const gTitle = game.gameTitle;
+            bestWinRates[gTitle] ??= {};
+            (game.players || []).forEach((player) => {
+                bestWinRates[gTitle][player.name] ??= {
+                    count: 0,
+                    wins: 0,
+                    loses: 0,
+                };
+                bestWinRates[gTitle][player.name]['count']++;
+                if (player.result === 'winner') {
+                    bestWinRates[gTitle][player.name]['wins']++;
+                } else if(player.result === 'loser') {
+                    bestWinRates[gTitle][player.name]['loses']++;
+                }
+            });
+            return bestWinRates;
+        }
+
+        function calcPlayedGamesByTitle(byTitle, game) {
+            byTitle[game.gameTitle] ??= 0;
+            byTitle[game.gameTitle]++;
+            return byTitle;
+        }
+
+        function calcWinRates(games) {
+            games = games.filter((game) => {
+                const players = game.players || [];
+                if (players.length <= 1) {
+                    return false;
+                }
+                return !game.players.every((pl) => pl.result === 'winner');
+            });
+
+            const winLoses = games.reduce(calcWinLoses, {});
+            const bestWinrates = {};
+            for (const [title, player] of Object.entries(winLoses)) {
+                for (const [playerName, rates] of Object.entries(player)) {
+                    const winRate = Math.round((rates['wins'] / rates['count'])*100);
+                    bestWinrates[playerName] ??= {winRate: 0, title: ''};
+                    if (winRate > bestWinrates[playerName].winRate) {
+                        bestWinrates[playerName] = {title, winRate}
+                    }
+                }
+            }
+
+            return bestWinrates;
+        }
+
+        (async() => {
+            const db = await openDB();
+            const gamesAlltime = await db.getAll('games');
+
+            const now = Date.now();
+            const monthPeriodMSec = 60*60*24*30*1000;
+            const lastMonthGames = gamesAlltime.filter((game) => game.gameDate && Date.parse(game.gameDate) + 1*monthPeriodMSec >= now);
+            //
+            const mostPlayedGameAlltime = Object.entries(
+                gamesAlltime.reduce(calcPlayedGamesByTitle, {})
+            ).reduce((a, b) => a[1] > b[1] ? a : b, -Infinity);
+
+            let gameTitle = mostPlayedGameAlltime[0];
+            let gamesCount = mostPlayedGameAlltime[1];
+            document
+                .querySelector(`[data-role="most-played-game-alltime"]`)
+                .querySelector(`[data-role="card-text"]`)
+                .innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}">${gameTitle}</a> (партий: ${gamesCount})`;
+            
+            //
+            const mostPlayedGameMonth = Object.entries(
+                lastMonthGames.reduce(calcPlayedGamesByTitle, {})
+            ).reduce((a, b) => a[1] > b[1] ? a : b, -Infinity);
+
+            gameTitle = mostPlayedGameMonth[0];
+            gamesCount = mostPlayedGameMonth[1];
+            document
+                .querySelector(`[data-role="most-played-game-month"]`)
+                .querySelector(`[data-role="card-text"]`)
+                .innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}">${gameTitle}</a> (партий: ${gamesCount})`;
+            
+            // 
+            const bestWinratesMonthTime = calcWinRates(lastMonthGames);
+            let bestWinrateText = '';
+            for (const [plName, data] of Object.entries(bestWinratesMonthTime)) {
+                bestWinrateText += `${plName}: <a href="edit-games.html?editTitle=${data.title}">${data.title}</a> (${data.winRate}%)<br>`;
+            }
+            document
+                .querySelector(`[data-role="most-winrate-month"]`)
+                .querySelector(`[data-role="card-text"]`)
+                .innerHTML = bestWinrateText;
+
+            //
+            const bestWinratesAllTime = calcWinRates(gamesAlltime);
+            bestWinrateText = '';
+            for (const [plName, data] of Object.entries(bestWinratesAllTime)) {
+                bestWinrateText += `${plName}: <a href="edit-games.html?editTitle=${data.title}">${data.title}</a> (${data.winRate}%)<br>`;
+            }
+            document
+                .querySelector(`[data-role="most-winrate-alltime"]`)
+                .querySelector(`[data-role="card-text"]`)
+                .innerHTML = bestWinrateText;
+        })();
+    </script>
+{{end}}
