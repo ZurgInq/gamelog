@@ -2,7 +2,7 @@
 <li data-game-id="${game.id}" class="mb-2">
     <a href="edit-game.html?gameId=${game.id}">
         <i class="bi bi-pencil"></i> ${game.gameDate}</a>
-        ${game.gameTitle}${game.tags > '' ? ` <i>(${game.tags})</i>` : ''} 
+        ${game.tags > '' ? ` <i>(${game.tags})</i>` : ''} 
         ${(parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${game.gameDuration}` : '')}
         ${(winnersNames.length > 0 ? `<br>Победители: ${winnersNames}` : '')}
         <br>
@@ -28,7 +28,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const gameListContainer = document.getElementById('game-list');
         const editTitle = urlParams.get('editTitle');
-        openDB().then(async (db) => {
+        refreshDBFromCloud().then(async (db) => {
             const games = await db.getAll('games');
             let filteredGames = games;
             if (editTitle) {

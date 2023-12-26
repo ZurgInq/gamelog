@@ -78,7 +78,7 @@
         }
 
         (async() => {
-            const db = await openDB();
+            const db = await refreshDBFromCloud();
             const gamesAlltime = await db.getAll('games');
 
             const now = Date.now();

@@ -46,43 +46,50 @@ function ProxyInput(inputElement, options = {}) {
 }
 
 async function openDB() {
-    return idb.openDB('db1', 2, {
+    return await idb.openDB('db1', 2, {
         upgrade(db, oldVersion, newVersion, transaction, event) {
-            switch (newVersion) {
-                case 1:
-                    const games = db.createObjectStore('games', {
+            switch (oldVersion) {
+                case 0:
+                    db.createObjectStore('games', {
                         keyPath: 'id',
                         autoIncrement: true,
                     });
-                case 2:
+                case 1:
                     db.createObjectStore('settings');
             }
         },
     });
 }
 
-async function incDBVersion(tx) {
-}
-
 async function loadGameById(gameId) {
     return (await openDB()).get('games', gameId);
 }
 
-async function updateGameId(gameId, update) {
+async function updateGameId(gameId, updateCallback) {
     const db = await openDB();
-    const tx = db.transaction(['games', 'settings'], 'readwrite');
+    const tx = db.transaction('games', 'readwrite');
     const gamesStore = tx.objectStore('games');
     const game = await gamesStore.get(gameId);
-    await gamesStore.put(update(game));
-    return tx.done;
+    await gamesStore.put(updateCallback(game));
+    await saveDBToCloud();
 }
 
 async function deleteGame(gameId) {
+    console.log(`delete game ${gameId}`);
     const db = await openDB();
-    const tx = db.transaction(['games', 'settings'], 'readwrite');
-    const gamesStore = tx.objectStore('games');
-    await gamesStore.delete(gameId);
-    return tx.done;
+    db.transaction('games', 'readwrite')
+        .objectStore('games')
+        .delete(parseInt(gameId));
+    await saveDBToCloud();
+}
+
+async function addGame(game) {
+    const db = await openDB();
+    const insertedId = await db.transaction('games', 'readwrite')
+        .objectStore('games')
+        .add(game);
+    await saveDBToCloud();
+    return insertedId;
 }
 
 async function exportDb() {
@@ -118,7 +125,8 @@ async function importDb(dbData) {
         await settingsStore.put(value, key);
     }
 
-    return tx.done;
+    await tx.done;
+    return db;
 }
 
 async function getTagsByGameTitle(gameTitle) {
@@ -207,4 +215,97 @@ function getDraws(game) {
 
 function getWinnersNames(game) {
     return getWinners(game).map(player => player.name).join(',');
+}
+
+async function loadFromCloud(uuid, etag) {
+    console.log(`load data with current etag ${etag}`);
+    const headers = { 'UUID': uuid };
+    if (etag) {
+        headers['If-None-Match'] = etag;
+    }
+    const resp = await fetch(
+        'https://functions.yandexcloud.net/d4e3kne4n6iimdh38773',
+        {
+            method: 'GET',
+            headers,
+        },
+    );
+
+    if (resp.status !== 200) {
+        return {};
+    }
+
+    if (resp.headers['etag'] === etag) {
+        return {};
+    }
+    return {
+        data: await resp.json(),
+        etag: resp.headers.get('etag'),
+    };
+}
+
+async function saveToCloud(uuid, data) {
+    console.log('save data to cloud');
+    const headers = { 'UUID': uuid };
+    const resp = await fetch(
+        'https://functions.yandexcloud.net/d4e3kne4n6iimdh38773?method=sync',
+        {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(data),
+        },
+    );
+    if (resp.status >= 200 || resp.status < 300) {
+        return resp.headers.get('etag');
+    }
+    return null;
+}
+
+async function refreshDBFromCloud() {
+    const uuid = window.localStorage.getItem('uuid');
+    if (!uuid) {
+        return openDB();
+    }
+    const syncState = window.localStorage.getItem('sync-state');
+    if (syncState === '0') {
+        console.log('db not synced, try sync');
+        saveDBToCloud();
+        return;
+    }
+
+    const dbEtag = window.localStorage.getItem('dbEtag');
+    try {
+        const { data, etag } = await loadFromCloud(uuid, dbEtag);
+        if (data && etag !== dbEtag) {
+            window.localStorage.setItem('dbEtag', etag);
+            console.log(`db loaded with etag ${etag}`);
+            const db = await importDb(data);
+            console.log(`db imported`);
+            return db;
+        }
+        console.log('already synced');
+    } catch (e) {
+        console.log(`fail load db from cloud ${e}`);
+        return openDB();
+    }
+
+    return openDB();
+}
+
+async function saveDBToCloud() {
+    const uuid = window.localStorage.getItem('uuid');
+    if (uuid) {
+        window.localStorage.setItem('sync-state', 0);
+        const data = await exportDb();
+        try {
+            const etag = await saveToCloud(uuid, data);
+            if (etag !== null) {
+                window.localStorage.setItem('dbEtag', etag);
+            }
+            console.log(`success save db to cloud, etag=${etag}`);
+            window.localStorage.setItem('sync-state', 1);
+        } catch (e) {
+            console.log(`fail save db to cloud ${e}`);
+        }
+    }
 }

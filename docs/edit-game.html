@@ -69,7 +69,7 @@
           <button id="submit" name="submit" type="submit" class="btn btn-primary"
             onclick="return saveGameClick(event);">Сохранить</button>
           <button id="submitAndAdd" name="submit" type="submit" class="btn btn-primary"
-            onclick="return saveGameClick(event, true);"><span>Сохранить <br> и добавить игрока</span></button>
+            onclick="return saveGameClick(event, true);"><span>Сохранить и добавить игрока</span></button>
         </div>
       </div>
     </form>
@@ -94,10 +94,21 @@
       </div>
     </div>
   </div>
-
   <script>
-    const gameId = getGameIdFromUrl();
-
+			const templates = {playersTableRow(idx, player, gameId) { return `
+<tr data-player-idx="${idx}">
+  <td>${player.name}</td>
+  <td>${player.result}</td>
+  <td>${player.score ? player.score : '-'}</td>
+  <td>${player.tags ? player.tags : '-'}</td>
+  <td> 
+    <a href="edit-player.html?gameId=${gameId}&playerId=${idx}"><i class="bi bi-pencil"></i> Изменить</a>
+    <a href="#" data-role="del-player"><i class="bi bi-trash"></i> Удалить</a>
+  </td>
+</tr>
+`; },}
+	</script>
+  <script>
     function renderTags(tags) {
       const tagsEl = document.getElementById('tagsHelpBlock').parentElement;
       tags.forEach((tag) => {
@@ -113,60 +124,6 @@
         };
         tagsEl.appendChild(el);
       });
-    }
-
-    if (gameId) {
-      (async () => {
-        const game = await loadGameById(gameId);
-        if (game) {
-          document.getElementById('gameTitle').value = game.gameTitle;
-          document.getElementById('gameDate').value = game.gameDate;
-          document.getElementById('gameDuration').value = parseInt(game.gameDuration);
-          document.getElementById('tags').value = game.tags;
-          document.getElementById('playersCount').value = parseInt(game.playersCount);
-
-          document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + gameId;
-          document.getElementById('btn-add-player').style.display = 'inline';
-
-          const tags = await getTagsByGameTitle(game.gameTitle);
-          renderTags(tags);
-
-          const playerListEl = document.getElementById('player-list');
-          const playerTableEl = document.getElementById('player-table').getElementsByTagName('tbody')[0];
-
-          const players = game.players || [];
-          for (let idx = 0; idx < players.length; idx++) {
-            const player = players[idx];
-            const tr = document.createElement('tr');
-            tr.setAttribute('data-player-idx', idx);
-            tr.innerHTML += `<td>${player.name}</td>`;
-            tr.innerHTML += `<td>${player.result}</td>`;
-            tr.innerHTML += `<td>${player.score ? player.score : '-'}</td>`;
-            tr.innerHTML += `<td>${player.tags ? player.tags : '-'}</td>`;
-            tr.innerHTML += `<td>
-              <a href="edit-player.html?gameId=${gameId}&playerId=${idx}"><i class="bi bi-pencil"></i> Изменить</a>
-              <a href="#" onclick="return delPlayerClick(event, ${idx});"><i class="bi bi-trash"></i> Удалить</a>
-            </td>`;
-
-            playerTableEl.appendChild(tr);
-          }
-
-          document.getElementById('listOfGamesLink').href += `?editTitle=${game.gameTitle}`;
-        }
-      })();
-    } else {
-      const urlParams = new URLSearchParams(window.location.search);
-      const gameTitle = urlParams.get('title');
-      if (gameTitle) {
-        document.getElementById('gameTitle').value = gameTitle;
-        document.getElementById('listOfGamesLink').href += `?editTitle=${gameTitle}`;
-        getTagsByGameTitle(gameTitle).then((tags) => {
-          renderTags(tags);
-        });
-      }
-      if (document.getElementById('gameDate').value == '') {
-        document.getElementById('gameDate').valueAsDate = new Date();
-      }
     }
 
     function delPlayerClick(event, plIdx) {
@@ -205,26 +162,74 @@
             return data;
           });
           document.getElementById('submit').disabled = false;
+          if (addPlayerAfterCreate) {
+            document.getElementById('btn-add-player').click();
+            return;
+          }
         })();
         return false;
       }
 
-      openDB().then(async (db) => {
-        const tx = db.transaction(['games', 'settings'], 'readwrite');
-        const gamesStore = tx.objectStore('games');
-        const insertedId = await gamesStore.add(data);
-        document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + insertedId;
-        await tx.done;
+      addGame(data).then((gameId) => {
+        document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + gameId;
         if (addPlayerAfterCreate) {
           document.getElementById('btn-add-player').click();
           return;
         }
-        document.getElementById('submit').textContent = 'Сохранено';
-        document.getElementById('submit').classList.replace('btn-primary', 'btn-success');
-        document.getElementById('btn-add-player').style.display = 'inline';
+        document.getElementById('listOfGamesLink').href += `&editTitle=${data.gameTitle}`;
+        document.getElementById('listOfGamesLink').click();
       });
 
       return false;
+    }
+    
+    const gameId = getGameIdFromUrl();
+    if (gameId) {
+      (async () => {
+        await refreshDBFromCloud();
+        const game = await loadGameById(gameId);
+        if (game) {
+          document.getElementById('gameTitle').value = game.gameTitle;
+          document.getElementById('gameDate').value = game.gameDate;
+          document.getElementById('gameDuration').value = parseInt(game.gameDuration);
+          document.getElementById('tags').value = game.tags;
+          document.getElementById('playersCount').value = parseInt(game.playersCount);
+
+          document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + gameId;
+          document.getElementById('btn-add-player').style.display = 'inline';
+
+          const tags = await getTagsByGameTitle(game.gameTitle);
+          renderTags(tags);
+
+          const playerListEl = document.getElementById('player-list');
+          const playerTableBodyEl = document.getElementById('player-table').getElementsByTagName('tbody')[0];
+
+          const players = game.players || [];
+          for (let idx = 0; idx < players.length; idx++) {
+            const player = players[idx];
+            playerTableBodyEl.insertAdjacentHTML('beforeend', templates.playersTableRow(idx, player, gameId));
+            playerTableBodyEl
+              .querySelector(`[data-player-idx="${idx}"]`)
+              .querySelector(`[data-role="del-player"]`)
+              .onclick = (event) => delPlayerClick(event, idx);
+          }
+
+          document.getElementById('listOfGamesLink').href += `?editTitle=${game.gameTitle}`;
+        }
+      })();
+    } else {
+      const urlParams = new URLSearchParams(window.location.search);
+      const gameTitle = urlParams.get('title');
+      if (gameTitle) {
+        document.getElementById('gameTitle').value = gameTitle;
+        document.getElementById('listOfGamesLink').href += `?editTitle=${gameTitle}`;
+        getTagsByGameTitle(gameTitle).then((tags) => {
+          renderTags(tags);
+        });
+      }
+      if (document.getElementById('gameDate').value == '') {
+        document.getElementById('gameDate').valueAsDate = new Date();
+      }
     }
   </script>
 </body>

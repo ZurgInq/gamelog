@@ -74,8 +74,7 @@
         this.tags.value += this.tags.value ? `,${tag}` : tag;
         return false;
       },
-      async loadForm() {
-        const game = await loadGameById(gameId);
+      async loadForm(game, playerId) {
         if (game) {
           const tagsEl = document.getElementById('tagsHelpBlock').parentElement;
           const tags = await getPlayerTagsByGameTitle(game.gameTitle);
@@ -87,35 +86,36 @@
             el.onclick = (event) => { this.addTagClick(event) };
             tagsEl.appendChild(el);
           });
+
+          if (playerId !== null && game.players && game.players[playerId]) {
+            const player = game.players[playerId];
+            this.playerName.value = player.name;
+            this.score.value = player.score;
+            this.tags.value = player.tags;
+            const result = player.result;
+            switch (result) {
+              case 'winner':
+                document.getElementById('result_0').checked = true;
+                break;
+              case 'loser':
+                document.getElementById('result_1').checked = true;
+                break;
+              case 'draw':
+                document.getElementById('result_2').checked = true;
+                break;  
+              default:
+                break;
+            }
+          }
         }
       },
     };
-    formObj.loadForm();
 
-    if (gameId && playerId !== null) {
-      // load player
+    if (gameId) {
       (async () => {
+        await refreshDBFromCloud();
         const game = await loadGameById(gameId);
-        if (game && game.players && game.players[playerId]) {
-          const player = game.players[playerId];
-          document.getElementById('playerName').value = player.name;
-          document.getElementById('score').value = player.score;
-          document.getElementById('tags').value = player.tags;
-          const result = player.result;
-          switch (result) {
-            case 'winner':
-              document.getElementById('result_0').checked = true;
-              break;
-            case 'loser':
-              document.getElementById('result_1').checked = true;
-              break;
-            case 'draw':
-              document.getElementById('result_0').checked = true;
-              break;  
-            default:
-              break;
-          }
-        }
+        await formObj.loadForm(game, playerId);
       })();
     }
 
@@ -133,20 +133,18 @@
         tags: document.getElementById('tags').value,
       };
 
-      openDB().then(async (db) => {
-        const tx = db.transaction(['games', 'settings'], 'readwrite');
-        const gameStore = tx.objectStore('games');
-        const game = await gameStore.get(parseInt(gameId));
-        if (!game.players) {
-          game.players = [];
-        }
-        if (playerId >= 0 && game.players[playerId]) {
-          game.players[playerId] = data;
-        } else {
-          game.players.push(data);
-        }
-        await gameStore.put(game);
-        await tx.done;
+      refreshDBFromCloud().then(async (db) => {
+        await updateGameId(parseInt(gameId), (game) => {
+          if (!game.players) {
+            game.players = [];
+          }
+          if (playerId >= 0 && game.players[playerId]) {
+            game.players[playerId] = data;
+          } else {
+            game.players.push(data);
+          }
+          return game;
+        });
 
         if (addOther) {
           document.getElementById('new-player-form').reset();
