@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="1.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css"
+        integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/idb@7/build/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct"
+        crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="css/main.css">
+    <script src="js/main.js"></script>
+</head>
+
+<body>
+      <div class="container">
+    <h2>Настройки</h2>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
+      </ol>
+    </nav>
+
+    <form id="new-game-form">
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="uuid">UUID пользователя</label>
+        <div class="col-8">
+          <input name="uuid" id="uuid" placeholder="ccfb92df-6d24-4917-88a6-6f0e427ec0dd" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="apiHost">Адрес АПИ</label>
+        <div class="col-8">
+          <input name="apiHost" id="apiHost" placeholder="http://host.com/endpoint" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="apiKey">Ключ АПИ</label>
+        <div class="col-8">
+          <input name="apiKey" id="apiKey" placeholder="xxx-yyy-zzz" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="apiKey">DB Etag</label>
+        <div class="col-8">
+          <input name="dbEtag" id="dbEtag" readonly="readonly" disabled="disabled" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="apiKey">DB Sync</label>
+        <div class="col-8">
+          <input name="syncState" id="syncState" readonly="readonly" disabled="disabled" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="offset-4 col-8">
+          <button id="submit" name="submit" type="submit" class="btn btn-primary" onclick="return saveFormClick(event);">Сохранить</button>
+        </div>
+      </div>
+    </form>
+
+    <div class="row">
+      <div class="col">
+          <div class="dropdown">
+              <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                  Экспорт\Импорт
+              </button>
+              <div class="dropdown-menu">
+                  <a class="dropdown-item" onclick="return downloadAsCsv(event);" href="#">Сохранить как csv</a>
+                  <a class="dropdown-item" onclick="return exportDBClick(event);" href="#">Экспорт json</a>
+                  <a class="dropdown-item" onclick="return importDBClick(event);" href="#">Импорт json</a>
+              </div>
+          </div>
+          <input id="importDBInput" type="file" class="invisible" />
+      </div>
+    </div>
+  </div>
+  <script>
+			const templates = {}
+	</script>
+  <script>
+    function downloadAsCsv(event) {
+        event.preventDefault();
+        openDB().then(db => {
+            db.getAll('games').then(games => {
+                const rows = [
+                    ["id", "Название игры", "Дата игры", "Длительность", "Теги", "Имя игрока", "Результат", "Очки", "Игрок - теги"],
+                ];
+                games.forEach(game => {
+                    let winners = '';
+                    if (game.players && game.players.length > 0) {
+                        winners = getWinnersNames(game);
+                    } else {
+                        game.players = [{}];
+                    }
+                    game.players.forEach((player, idx) => {
+                        rows.push([
+                            game.id,
+                            escapeCSVString(game.gameTitle),
+                            game.gameDate,
+                            game.gameDuration,
+                            escapeCSVString(game.tags ?? ''),
+                            player.name ?? '',
+                            player.result ?? '',
+                            player.score ?? '',
+                            player.tags ?? '',
+                        ]);
+                    });
+                });
+                let csvContent = rows.map(e => e.join(',')).join("\n");
+
+                const file = new File([csvContent], 'my-games.csv', {
+                    type: 'text/csv',
+                });
+                downloadFile(file);
+            });
+            return false;
+        });
+        return false;
+    }    
+
+    function exportDBClick(event) {
+        event.preventDefault();
+        (async () => {
+            const data = await exportDb();
+            const file = new File([JSON.stringify(data)], 'db1.json', {
+                type: 'application/json',
+            });
+            downloadFile(file);
+        })();
+        return false;
+    }
+
+    function importDBClick(event) {
+        event.preventDefault();
+        document.getElementById('importDBInput').click();
+        return false;
+    }
+
+    function saveFormClick(event) {
+      event.preventDefault();
+      formObj.saveForm();
+      return false;
+    }
+
+    const formObj = {
+      uuid: document.getElementById('uuid'),
+      apiHost: document.getElementById('apiHost'),
+      apiKey: document.getElementById('apiKey'),
+      dbEtag: document.getElementById('dbEtag'),
+      syncState: document.getElementById('syncState'),
+      loadForm() {
+        this.uuid.value = AppSettings.uuid;
+        this.apiHost.value = AppSettings.apiHost;
+        this.apiKey.value = AppSettings.apiKey;
+        this.dbEtag.value = AppSettings.dbEtag;
+        this.syncState.value = AppSettings.syncState === '1' ? 'ok' : 'no';
+      },
+      saveForm() {
+        localStorage.setItem('uuid', this.uuid.value);
+        localStorage.setItem('apiHost', this.apiHost.value);
+        localStorage.setItem('apiKey', this.apiKey.value);
+      }
+    }
+
+    formObj.loadForm();
+
+    document.getElementById('importDBInput').addEventListener('change', (event) => {
+      var reader = new FileReader();
+      reader.onload = (event) => {
+          const dbData = JSON.parse(event.target.result);
+          importDb(dbData).then(() => window.location.reload());
+      };
+      reader.readAsText(event.target.files[0]);
+    });
+  </script>
+</body>
+
+</html>

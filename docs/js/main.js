@@ -22,6 +22,7 @@ function strToInt(value) {
     return parsed;
 }
 
+// ToDo убрать, бессмысленно
 function ProxyInput(inputElement, options = {}) {
     const el = inputElement;
     return new Proxy({
@@ -219,7 +220,10 @@ function getWinnersNames(game) {
 
 async function loadFromCloud(uuid, etag) {
     console.log(`load data with current etag ${etag}`);
-    const headers = { 'UUID': uuid };
+    const headers = { 
+        'UUID': uuid,
+        'APIKey': AppSettings.apiKey,
+    };
     if (etag) {
         headers['If-None-Match'] = etag;
     }
@@ -230,6 +234,10 @@ async function loadFromCloud(uuid, etag) {
             headers,
         },
     );
+
+    if (resp.status === 304) {
+        return {data: null, etag: etag};
+    }
 
     if (resp.status !== 200) {
         return {};
@@ -246,7 +254,10 @@ async function loadFromCloud(uuid, etag) {
 
 async function saveToCloud(uuid, data) {
     console.log('save data to cloud');
-    const headers = { 'UUID': uuid };
+    const headers = { 
+        'UUID': uuid,
+        'APIKey': AppSettings.apiKey,
+    };
     const resp = await fetch(
         'https://functions.yandexcloud.net/d4e3kne4n6iimdh38773?method=sync',
         {
@@ -266,24 +277,27 @@ async function refreshDBFromCloud() {
     if (!uuid) {
         return openDB();
     }
-    const syncState = window.localStorage.getItem('sync-state');
-    if (syncState === '0') {
+
+    if (AppSettings.syncState === '0') {
         console.log('db not synced, try sync');
-        saveDBToCloud();
-        return;
+        await saveDBToCloud();
+        return openDB();
     }
 
-    const dbEtag = window.localStorage.getItem('dbEtag');
+    const dbEtag = AppSettings.dbEtag;
     try {
         const { data, etag } = await loadFromCloud(uuid, dbEtag);
-        if (data && etag !== dbEtag) {
+        if (dbEtag && dbEtag == etag) {
+            console.log('already synced');
+        } else if (data && etag !== dbEtag) {
             window.localStorage.setItem('dbEtag', etag);
             console.log(`db loaded with etag ${etag}`);
             const db = await importDb(data);
             console.log(`db imported`);
             return db;
+        } else if (!data) {
+            console.log('fail load data from cloud');
         }
-        console.log('already synced');
     } catch (e) {
         console.log(`fail load db from cloud ${e}`);
         return openDB();
@@ -295,17 +309,52 @@ async function refreshDBFromCloud() {
 async function saveDBToCloud() {
     const uuid = window.localStorage.getItem('uuid');
     if (uuid) {
-        window.localStorage.setItem('sync-state', 0);
+        AppSettings.syncState = 0;
         const data = await exportDb();
         try {
             const etag = await saveToCloud(uuid, data);
             if (etag !== null) {
-                window.localStorage.setItem('dbEtag', etag);
+                AppSettings.dbEtag = etag;
             }
             console.log(`success save db to cloud, etag=${etag}`);
-            window.localStorage.setItem('sync-state', 1);
+            AppSettings.syncState = 1;
         } catch (e) {
             console.log(`fail save db to cloud ${e}`);
         }
     }
+}
+
+const AppSettings = {
+    // getters
+    get uuid() {
+        return window.localStorage.getItem('uuid');
+    },
+    get apiHost() {
+        return window.localStorage.getItem('apiHost');
+    },
+    get apiKey() {
+        return window.localStorage.getItem('apiKey');
+    },
+    get dbEtag() {
+        return window.localStorage.getItem('dbEtag');
+    },
+    get syncState() {
+        return window.localStorage.getItem('syncState');
+    },
+    // setters
+    set uuid(v) {
+        return window.localStorage.setItem('uuid', v);
+    },
+    set apiHost(v) {
+        return window.localStorage.setItem('apiHost', v);
+    },
+    set apiKey(v) {
+        return window.localStorage.setItem('apiKey', v);
+    },
+    set dbEtag(v) {
+        return window.localStorage.setItem('dbEtag', v);
+    },
+    set syncState(v) {
+        return window.localStorage.setItem('syncState', v);
+    },
 }
