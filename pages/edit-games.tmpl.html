@@ -34,7 +34,7 @@
             if (editTitle) {
                 document.getElementById('newGameLink').href += `?title=${editTitle}`;
                 document.getElementById('pageTitle').textContent += ` ${editTitle}`;
-                filteredGames = games.filter(g => g.gameTitle === editTitle).sort((a, b) => a.gameDate < b.gameDate);
+                filteredGames = games.filter(g => g.gameTitle === editTitle).sort((a, b) => a.id < b.id);
             }
 
             for (const game of filteredGames) {
