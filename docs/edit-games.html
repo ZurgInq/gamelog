@@ -26,7 +26,7 @@
         <nav>
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
-                <li class="breadcrumb-item active" aria-current="page"><a id="newGameLink"
+                <li class="breadcrumb-item active"><a id="newGameLink"
                         href="edit-game.html">Добавить игру</a></li>
             </ol>
         </nav>
@@ -58,7 +58,7 @@
             if (editTitle) {
                 document.getElementById('newGameLink').href += `?title=${editTitle}`;
                 document.getElementById('pageTitle').textContent += ` ${editTitle}`;
-                filteredGames = games.filter(g => g.gameTitle === editTitle);
+                filteredGames = games.filter(g => g.gameTitle === editTitle).sort((a, b) => a.gameDate < b.gameDate);
             }
 
             for (const game of filteredGames) {
