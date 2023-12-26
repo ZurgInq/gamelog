@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 
@@ -14,13 +15,16 @@ import (
 	awsHttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
 )
 
 const (
-	appBucket  = "game-log"
-	uuidHeader = "UUID"
+	appBucket    = "game-log"
+	uuidHeader   = "UUID"
+	apiKeyEnv    = "API_KEY"
+	apiKeyHeader = "APIKey"
 )
 
 var corsHandler = cors.New(cors.Options{
@@ -38,6 +42,21 @@ var corsHandler = cors.New(cors.Options{
 	ExposedHeaders:   []string{"ETag"},
 })
 var s3Client = newS3Client(context.Background())
+
+func Handler(rw http.ResponseWriter, req *http.Request) {
+	corsHandler.Log = log.Default()
+	corsHandler.HandlerFunc(rw, req)
+
+	if req.Method == http.MethodOptions {
+		return
+	} else if req.Method == http.MethodGet {
+		getDBHandler(rw, req)
+	} else if req.Method == http.MethodPut {
+		saveDBHandler(rw, req)
+	} else {
+		rw.WriteHeader(204)
+	}
+}
 
 func dbPath(uuid string) string {
 	return path.Join(uuid, "db1.json")
@@ -60,18 +79,31 @@ func keyExists(ctx context.Context, client *s3.Client, uuid string) (bool, error
 	return true, nil
 }
 
-func Handler(rw http.ResponseWriter, req *http.Request) {
-	corsHandler.Log = log.Default()
-	corsHandler.HandlerFunc(rw, req)
-	if req.Method == http.MethodOptions {
-		return
+func fetchCredentionals(req *http.Request) (uuid.UUID, string, error) {
+	reqUUID, err := uuid.FromString(req.Header.Get(uuidHeader))
+	if err != nil {
+		return uuid.Nil, "", errors.Wrap(err, "invalid UUID")
 	}
 
-	uuid := req.Header.Get(uuidHeader)
-	if uuid == "" {
+	reqAPIKey := req.Header.Get(apiKeyHeader)
+	if reqAPIKey == "" {
+		return uuid.Nil, "", errors.Wrap(err, "Empty APIKey header")
+	}
+	return reqUUID, reqAPIKey, nil
+}
+
+func validateRequestCredentionals(rw http.ResponseWriter, req *http.Request) (uuid.UUID, bool) {
+	userUUID, apiKey, err := fetchCredentionals(req)
+	if err != nil {
+		rw.WriteHeader(401)
+		io.WriteString(rw, err.Error())
+		return uuid.Nil, false
+	}
+
+	if apiKey != os.Getenv(apiKeyEnv) {
 		rw.WriteHeader(403)
-		io.WriteString(rw, "Empty UUID")
-		return
+		io.WriteString(rw, "Invalid APIKey")
+		return uuid.Nil, false
 	}
 
 	// ToDo
@@ -85,50 +117,65 @@ func Handler(rw http.ResponseWriter, req *http.Request) {
 	// 	return
 	// }
 
-	path := aws.String(dbPath(uuid))
-	if req.Method == http.MethodGet {
-		object, err := s3Client.GetObject(req.Context(), &s3.GetObjectInput{
-			Bucket:      aws.String(appBucket),
-			Key:         path,
-			IfNoneMatch: aws.String(req.Header.Get("If-None-Match")),
-		})
-		if err != nil {
-			log.Printf("get object %s %s %s", appBucket, *path, err)
-			var respErr *awsHttp.ResponseError
-			if errors.As(err, &respErr) {
-				rw.WriteHeader(respErr.HTTPStatusCode())
-				return
-			}
-			rw.WriteHeader(500)
-			return
-		}
-		defer object.Body.Close()
-		rw.Header().Add("ETag", *object.ETag)
-		rw.Header().Add("Content-Type", "application/json")
-		io.Copy(rw, object.Body)
-	} else if req.Method == http.MethodPut {
-		var reqBody json.RawMessage
-		err := json.NewDecoder(req.Body).Decode(&reqBody)
-		if err != nil {
-			rw.WriteHeader(400)
-			io.WriteString(rw, fmt.Sprintf("Fail decode request: %s", err.Error()))
-			return
-		}
+	return userUUID, true
+}
 
-		object, err := s3Client.PutObject(req.Context(), &s3.PutObjectInput{
-			Bucket: aws.String(appBucket),
-			Key:    path,
-			Body:   strings.NewReader(string(reqBody)),
-		})
-		if err != nil {
-			log.Printf("put object %s %s %s", appBucket, *path, err)
-			rw.WriteHeader(400)
-			io.WriteString(rw, fmt.Sprintf("Fail decode request: %s", err.Error()))
-			return
-		}
-		rw.Header().Add("ETag", *object.ETag)
+func getDBHandler(rw http.ResponseWriter, req *http.Request) {
+	userUUID, ok := validateRequestCredentionals(rw, req)
+	if !ok {
+		return
 	}
 
+	path := aws.String(dbPath(userUUID.String()))
+	object, err := s3Client.GetObject(req.Context(), &s3.GetObjectInput{
+		Bucket:      aws.String(appBucket),
+		Key:         path,
+		IfNoneMatch: aws.String(req.Header.Get("If-None-Match")),
+	})
+	if err != nil {
+		log.Printf("get object %s %s %s", appBucket, *path, err)
+		var respErr *awsHttp.ResponseError
+		if errors.As(err, &respErr) {
+			rw.WriteHeader(respErr.HTTPStatusCode())
+			return
+		}
+		rw.WriteHeader(500)
+		return
+	}
+	defer object.Body.Close()
+	rw.Header().Add("ETag", *object.ETag)
+	rw.Header().Add("Content-Type", "application/json")
+	io.Copy(rw, object.Body)
+	rw.WriteHeader(200)
+}
+
+func saveDBHandler(rw http.ResponseWriter, req *http.Request) {
+	userUUID, ok := validateRequestCredentionals(rw, req)
+	if !ok {
+		return
+	}
+	path := aws.String(dbPath(userUUID.String()))
+
+	var reqBody json.RawMessage
+	err := json.NewDecoder(req.Body).Decode(&reqBody)
+	if err != nil {
+		rw.WriteHeader(400)
+		io.WriteString(rw, fmt.Sprintf("Fail decode request: %s", err.Error()))
+		return
+	}
+
+	object, err := s3Client.PutObject(req.Context(), &s3.PutObjectInput{
+		Bucket: aws.String(appBucket),
+		Key:    path,
+		Body:   strings.NewReader(string(reqBody)),
+	})
+	if err != nil {
+		log.Printf("put object %s %s %s", appBucket, *path, err)
+		rw.WriteHeader(400)
+		io.WriteString(rw, fmt.Sprintf("Fail decode request: %s", err.Error()))
+		return
+	}
+	rw.Header().Add("ETag", *object.ETag)
 	rw.WriteHeader(200)
 }
 
