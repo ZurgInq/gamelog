@@ -64,8 +64,8 @@ ${addTitleMarker ? `<hr>` : ''}
     <a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i> Добавить</a> <br>
     Количество игр: ${gamesCount}<br>
     ${players.map((player) => {
-        return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : player.drawCount}<br>`;
-    })}
+        return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : ` / ${player.drawCount}`}<br>`;
+    }).join('')}
     <small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
 </li>
 `; },}
@@ -106,7 +106,7 @@ ${addTitleMarker ? `<hr>` : ''}
                 if (gameFilterValue !== '' && !gameTitle.toLowerCase().includes(gameFilterValue)) {
                     continue;
                 }
-                const playersByName = [];
+                const playersByName = {};
                 const games = gamesByTitle[gameTitle];
                 for (const game of games) {
                     for (const player of (game.players ?? [])) {
@@ -117,12 +117,13 @@ ${addTitleMarker ? `<hr>` : ''}
                 gameListContainer.insertAdjacentHTML('beforeend', templates.gameItem(
                     gameTitle,
                     games.length,
-                    playersByName.map((player) => {
+                    Object.values(playersByName).map((players) => {
+                        const playerName = players[0].name;
                         return {
-                            name: player.name,
-                            winCount: getWinners({ players: playersByName[playerName] }).length,
-                            loseCount: getLosers({ players: playersByName[playerName] }).length,
-                            drawCount: getDraws({ players: playersByName[playerName] }).length,
+                            name: players[0].name,
+                            winCount: getWinners({ players }).length,
+                            loseCount: getLosers({ players }).length,
+                            drawCount: getDraws({ players }).length,
                         }
                     }),
                     gameTitle[0] !== lastTitle[0],
