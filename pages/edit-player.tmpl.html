@@ -153,6 +153,22 @@
         tags: document.getElementById('tags').value.trim(),
       };
 
+      if (data.score[0] === '=') {
+        const input = data.score.slice(1);
+        let sum = 0;
+        (input.split('+') || []).forEach((positive) => {
+          const negative = positive.split('-');
+          negative.forEach((val, idx) => {
+            if (idx === 0) {
+              sum += val === '' ? 0 : parseInt(val);
+            } else {
+              sum -= parseInt(val);
+            }
+          });
+        });
+        data.score = sum;
+      }
+
       refreshDBFromCloud().then(async (db) => {
         await updateGameId(parseInt(gameId), (game) => {
           if (!game.players) {
