@@ -72,6 +72,14 @@
             onclick="return saveGameClick(event, true);"><span>Сохранить и добавить игрока</span></button>
         </div>
       </div>
+      <div class="form-group row">
+        <div class="col-8 offset-4">
+          <div class="form-check">
+            <input id="coopGame" name="coopGame" type="checkbox" class="form-check-input">
+            <label for="coopGame" class="form-check-label">Кооператив</label>
+          </div>
+        </div>
+      </div>
     </form>
     <div class="form-group row">
       <div class="col-8">
@@ -152,6 +160,7 @@
         gameDuration: document.getElementById('gameDuration').value,
         playersCount: document.getElementById('playersCount').value,
         tags: document.getElementById('tags').value,
+        coopGame: document.getElementById('coopGame').checked,
       };
 
       if (gameId) {
@@ -194,6 +203,9 @@
           document.getElementById('gameDuration').value = parseInt(game.gameDuration);
           document.getElementById('tags').value = game.tags;
           document.getElementById('playersCount').value = parseInt(game.playersCount);
+          if (game.coopGame) {
+            document.getElementById('coopGame').setAttribute('checked', 'checked');
+          }
 
           document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + gameId;
           document.getElementById('btn-add-player').style.display = 'inline';

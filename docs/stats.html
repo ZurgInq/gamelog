@@ -106,6 +106,7 @@
                 }
                 return !game.players.every((pl) => pl.result === 'winner');
             });
+            console.log(games);
 
             const winLoses = games.reduce(calcWinLoses, {});
             const bestWinrates = {};

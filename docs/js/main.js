@@ -278,7 +278,7 @@ async function refreshDBFromCloud() {
         return openDB();
     }
 
-    if (AppSettings.syncState === '0') {
+    if (AppSettings.syncState === 0) {
         console.log('db not synced, try sync');
         await saveDBToCloud();
         return openDB();
@@ -339,7 +339,7 @@ const AppSettings = {
         return window.localStorage.getItem('dbEtag');
     },
     get syncState() {
-        return window.localStorage.getItem('syncState');
+        return parseInt(window.localStorage.getItem('syncState'));
     },
     // setters
     set uuid(v) {
@@ -355,6 +355,6 @@ const AppSettings = {
         return window.localStorage.setItem('dbEtag', v);
     },
     set syncState(v) {
-        return window.localStorage.setItem('syncState', v);
+        return window.localStorage.setItem('syncState', parseInt(v));
     },
 }
