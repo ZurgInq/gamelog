@@ -34,26 +34,22 @@
       <div class="form-group row">
         <label for="playerName" class="col-4 col-form-label">Имя игрока</label>
         <div class="col-8">
-          <input id="playerName" name="playerName" placeholder="Наталья" type="text" class="form-control"
-            required="required">
+          <input id="playerName" name="playerName" placeholder="Наталья" type="text" class="form-control" required="required">
         </div>
       </div>
       <div class="form-group row">
         <label class="col-4">Результат</label>
         <div class="col-8">
           <div class="custom-control custom-radio custom-control-inline">
-            <input name="playerResult" id="result_0" type="radio" required="required" class="custom-control-input"
-              value="winner">
+            <input name="playerResult" id="result_0" type="radio" class="custom-control-input" value="winner">
             <label for="result_0" class="custom-control-label">Победа</label>
           </div>
           <div class="custom-control custom-radio custom-control-inline">
-            <input name="playerResult" id="result_1" type="radio" required="required" class="custom-control-input"
-              value="loser">
+            <input name="playerResult" id="result_1" type="radio" class="custom-control-input" value="loser">
             <label for="result_1" class="custom-control-label">Поражение</label>
           </div>
           <div class="custom-control custom-radio custom-control-inline">
-            <input name="playerResult" id="result_2" type="radio" required="required" class="custom-control-input"
-              value="draw">
+            <input name="playerResult" id="result_2" type="radio" class="custom-control-input" value="draw">
             <label for="result_2" class="custom-control-label">Ничья</label>
           </div>
         </div>
@@ -150,18 +146,20 @@
       document.getElementById('submit').disabled = true;
 
       const data = {
-        name: document.getElementById('playerName').value,
+        name: document.getElementById('playerName').value.trim(),
         result: document.querySelector('input[name="playerResult"]:checked').value,
-        score: document.getElementById('score').value,
-        tags: document.getElementById('tags').value,
+        score: document.getElementById('score').value.trim(),
+        tags: document.getElementById('tags').value.trim(),
       };
 
       refreshDBFromCloud().then(async (db) => {
         await updateGameId(parseInt(gameId), (game) => {
+          console.log('update');
           if (!game.players) {
             game.players = [];
           }
           if (playerId >= 0 && game.players[playerId]) {
+            console.log(data);
             game.players[playerId] = data;
           } else {
             game.players.push(data);

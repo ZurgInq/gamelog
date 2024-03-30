@@ -101,12 +101,15 @@
         function calcWinRates(games) {
             games = games.filter((game) => {
                 const players = game.players || [];
+                if (game.coopGame) {
+                    return false;
+                }
                 if (players.length <= 1) {
                     return false;
                 }
-                return !game.players.every((pl) => pl.result === 'winner');
+                return !game.players.every((pl) => pl.result === 'winner') 
+                    && !game.players.every((pl) => pl.result === 'loser');
             });
-            console.log(games);
 
             const winLoses = games.reduce(calcWinLoses, {});
             const bestWinrates = {};

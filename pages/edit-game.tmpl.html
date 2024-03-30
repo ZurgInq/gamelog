@@ -131,11 +131,11 @@
       document.getElementById('submit').disabled = true;
 
       const data = {
-        gameTitle: document.getElementById('gameTitle').value,
+        gameTitle: document.getElementById('gameTitle').value.trim(),
         gameDate: document.getElementById('gameDate').value,
         gameDuration: document.getElementById('gameDuration').value,
         playersCount: document.getElementById('playersCount').value,
-        tags: document.getElementById('tags').value,
+        tags: document.getElementById('tags').value.trim(),
         coopGame: document.getElementById('coopGame').checked,
       };
 
