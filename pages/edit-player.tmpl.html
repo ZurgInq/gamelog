@@ -12,6 +12,7 @@
         <label for="playerName" class="col-4 col-form-label">Имя игрока</label>
         <div class="col-8">
           <input id="playerName" name="playerName" placeholder="Наталья" type="text" class="form-control" required="required">
+          <span id="playerNameSuggest" class="form-text text-muted"></span>
         </div>
       </div>
       <div class="form-group row">
@@ -70,7 +71,7 @@
         this.tags.value += this.tags.value ? `,${tag}` : tag;
         return false;
       },
-      async loadForm(game, playerId) {
+      async loadForm(game, playerId, names) {
         if (game) {
           const tagsEl = document.getElementById('tagsHelpBlock').parentElement;
           const tags = await getPlayerTagsByGameTitle(game.gameTitle);
@@ -104,14 +105,37 @@
             }
           }
         }
+
+        if (names) {
+          const playerNameContainerEl = document.getElementById('playerNameSuggest').parentElement;
+          const playerNameEl = document.getElementById('playerName');
+          names.forEach((name) => {
+            const el = document.createElement('a');
+            el.href = '#';
+            el.innerText = name;
+            el.style.marginRight = '0.5em';
+            el.onclick = (event) => { 
+              event.preventDefault();
+              playerNameEl.value = event.currentTarget.innerText;
+              return false;
+            };
+            playerNameContainerEl.appendChild(el);
+          });
+        }
       },
     };
 
     if (gameId) {
       (async () => {
-        await refreshDBFromCloud();
+        const db = await refreshDBFromCloud();
         const game = await loadGameById(gameId);
-        await formObj.loadForm(game, playerId);
+
+        const lastGames = (await db.getAll('games')).slice(-10) || [];
+        const names = {}
+        lastGames.map(
+          (game) => (game.players || []).forEach((player) => names[player.name] = true),
+        );
+        await formObj.loadForm(game, playerId, Object.keys(names));
       })();
     }
 

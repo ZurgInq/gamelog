@@ -118,7 +118,8 @@
 	</script>
   <script>
     function renderTags(tags) {
-      const tagsEl = document.getElementById('tagsHelpBlock').parentElement;
+      const tagsContainerEl = document.getElementById('tagsHelpBlock').parentElement;
+      const tagsInputEl = document.getElementById('tags');
       tags.forEach((tag) => {
         const el = document.createElement('a');
         el.href = '#';
@@ -127,10 +128,10 @@
         el.onclick = (event) => { 
           event.preventDefault();
           const tag = event.currentTarget.innerText;
-          this.tags.value += this.tags.value ? `,${tag}` : tag;
+          tagsInputEl.value += tagsInputEl.value ? `,${tag}` : tag;
           return false;
         };
-        tagsEl.appendChild(el);
+        tagsContainerEl.appendChild(el);
       });
     }
 
@@ -155,11 +156,11 @@
       document.getElementById('submit').disabled = true;
 
       const data = {
-        gameTitle: document.getElementById('gameTitle').value,
+        gameTitle: document.getElementById('gameTitle').value.trim(),
         gameDate: document.getElementById('gameDate').value,
         gameDuration: document.getElementById('gameDuration').value,
         playersCount: document.getElementById('playersCount').value,
-        tags: document.getElementById('tags').value,
+        tags: document.getElementById('tags').value.trim(),
         coopGame: document.getElementById('coopGame').checked,
       };
 
