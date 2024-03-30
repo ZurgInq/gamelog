@@ -3,7 +3,7 @@
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
-        <li class="breadcrumb-item"><a href="index.html">Список игр</a></li>
+        <li class="breadcrumb-item"><a id="games-link" href="index.html">Список игр</a></li>
         <li class="breadcrumb-item active"><a id="game-link" href="edit-game.html?gameId=">Игра</a></li>
       </ol>
     </nav>
@@ -129,6 +129,7 @@
       (async () => {
         const db = await refreshDBFromCloud();
         const game = await loadGameById(gameId);
+        document.getElementById('games-link').href += '?editTitle=' + game.gameTitle;
 
         const lastGames = (await db.getAll('games')).slice(-10) || [];
         const names = {}
