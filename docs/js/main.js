@@ -1,3 +1,7 @@
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("js/sw.js").then(console.log('Service Worker Registered'));
+}  
+
 function debounceFn(fn, wait) {
     let timeoutId = null;
     return function () {

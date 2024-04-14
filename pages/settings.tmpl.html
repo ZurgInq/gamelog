@@ -137,7 +137,7 @@
         this.apiHost.value = AppSettings.apiHost;
         this.apiKey.value = AppSettings.apiKey;
         this.dbEtag.value = AppSettings.dbEtag;
-        this.syncState.value = AppSettings.syncState === '1' ? 'ok' : 'no';
+        this.syncState.value = AppSettings.syncState ? 'ok' : 'no';
       },
       saveForm() {
         localStorage.setItem('uuid', this.uuid.value);
