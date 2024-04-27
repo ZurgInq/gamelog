@@ -70,6 +70,15 @@ async function loadGameById(gameId) {
     return (await openDB()).get('games', gameId);
 }
 
+/**
+ * @callback updateCallback
+ * @param {Object} game
+ *
+
+/**
+ * @param {number} gameId 
+ * @param {updateCallback} updateCallback 
+ */
 async function updateGameId(gameId, updateCallback) {
     const db = await openDB();
     const tx = db.transaction('games', 'readwrite');
@@ -77,6 +86,14 @@ async function updateGameId(gameId, updateCallback) {
     const game = await gamesStore.get(gameId);
     await gamesStore.put(updateCallback(game));
     await saveDBToCloud();
+}
+
+/**
+ * @param {number} gameId 
+ * @param {updateCallback} updateCallback 
+ */
+async function updateGameById(gameId, updateCallback) {
+    updateGameId(gameId, updateCallback);
 }
 
 async function deleteGame(gameId) {
@@ -308,6 +325,15 @@ async function refreshDBFromCloud() {
     }
 
     return openDB();
+}
+
+function splitGameDuration(durationMinutes) {
+    durationMinutes = parseInt(durationMinutes);
+    return [parseInt(durationMinutes / 60), durationMinutes % 60];
+}
+
+function joinGameDuration(hours, minutes) {
+    return hours * 60 + minutes;
 }
 
 async function saveDBToCloud() {
