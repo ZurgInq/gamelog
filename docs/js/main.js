@@ -362,7 +362,7 @@ async function saveToCloud(uuid, data) {
     return null;
 }
 
-async function refreshDBFromCloud() {
+async function refreshDBFromCloud(force = false) {
     const uuid = window.localStorage.getItem('uuid');
     if (!uuid) {
         return openDB();
@@ -374,16 +374,29 @@ async function refreshDBFromCloud() {
         return openDB();
     }
 
+    const secondsInMs = 1000;
+    const refreshDbPeriod = 60 * secondsInMs;
+    if (
+        !force
+        && AppSettings.lastSyncTime
+        && AppSettings.lastSyncTime.getTime() + refreshDbPeriod > (new Date()).getTime()
+    ) {
+        console.log('Skip refresh db by time');
+        return openDB();
+    }
+
     const dbEtag = AppSettings.dbEtag;
     try {
         const { data, etag } = await loadFromCloud(uuid, dbEtag);
         if (dbEtag && dbEtag == etag) {
+            AppSettings.lastSyncTime = new Date();
             console.log('already synced');
         } else if (data && etag !== dbEtag) {
             window.localStorage.setItem('dbEtag', etag);
             console.log(`db loaded with etag ${etag}`);
             const db = await importDb(data);
             console.log(`db imported`);
+            AppSettings.lastSyncTime = new Date();
             SessionCache.reset();
             return db;
         } else if (!data) {
@@ -400,7 +413,7 @@ async function refreshDBFromCloud() {
 async function saveDBToCloud() {
     const uuid = window.localStorage.getItem('uuid');
     if (uuid) {
-        AppSettings.syncState = 0;
+        AppSettings.setSyncState(0);
         const data = await exportDb();
         try {
             const etag = await saveToCloud(uuid, data);
@@ -408,7 +421,7 @@ async function saveDBToCloud() {
                 AppSettings.dbEtag = etag;
             }
             console.log(`success save db to cloud, etag=${etag}`);
-            AppSettings.syncState = 1;
+            AppSettings.setSyncState(1);
         } catch (e) {
             console.log(`fail save db to cloud ${e}`);
         }
@@ -417,6 +430,13 @@ async function saveDBToCloud() {
 }
 
 const AppSettings = {
+    setSyncState: function(v) {
+        v = parseInt(v);
+        this.syncState = v;
+        if (v === 1) {
+            this.lastSyncTime = new Date();
+        }
+    },
     // getters
     get uuid() {
         return window.localStorage.getItem('uuid');
@@ -432,6 +452,13 @@ const AppSettings = {
     },
     get syncState() {
         return parseInt(window.localStorage.getItem('syncState'));
+    },
+    get lastSyncTime() {
+        const t = parseInt(window.sessionStorage.getItem('lastSyncTime'));
+        if (!t) {
+            return null;
+        }
+        return new Date(t);
     },
     // setters
     set uuid(v) {
@@ -449,6 +476,12 @@ const AppSettings = {
     set syncState(v) {
         return window.localStorage.setItem('syncState', parseInt(v));
     },
+    set lastSyncTime(d) {
+        if (!d) {
+            window.sessionStorage.removeItem('lastSyncTime');
+        }
+        return window.sessionStorage.setItem('lastSyncTime', d.getTime());
+    }
 }
 
 const SessionCache = {

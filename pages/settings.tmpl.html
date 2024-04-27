@@ -38,6 +38,12 @@
         </div>
       </div>
       <div class="form-group row">
+        <label class="col-4 col-form-label" for="apiKey">Last Sync Time</label>
+        <div class="col-8">
+          <input name="lastSyncTime" id="lastSyncTime" readonly="readonly" disabled="disabled" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
         <div class="offset-4 col-8">
           <button id="submit" name="submit" type="submit" class="btn btn-primary" onclick="return saveFormClick(event);">Сохранить</button>
         </div>
@@ -132,12 +138,14 @@
       apiKey: document.getElementById('apiKey'),
       dbEtag: document.getElementById('dbEtag'),
       syncState: document.getElementById('syncState'),
+      lastSyncTime: document.getElementById('lastSyncTime'),
       loadForm() {
         this.uuid.value = AppSettings.uuid;
         this.apiHost.value = AppSettings.apiHost;
         this.apiKey.value = AppSettings.apiKey;
         this.dbEtag.value = AppSettings.dbEtag;
         this.syncState.value = AppSettings.syncState ? 'ok' : 'no';
+        this.lastSyncTime.value = AppSettings.lastSyncTime;
       },
       saveForm() {
         localStorage.setItem('uuid', this.uuid.value);

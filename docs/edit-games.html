@@ -36,7 +36,13 @@
         </div>
     </div>
     <script>
-			const templates = {gameItem(game, winnersNames, durationHours, durationMinutes) { return `
+			const templates = {gamesStats(gamesCount, players) { return `
+Количество игр: ${gamesCount}<br>
+${players.map((player) => {
+    return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : ` / ${player.drawCount}`}<br>`;
+}).join('')}
+<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
+`; },gameItem(game, winnersNames, durationHours, durationMinutes) { return `
 <li data-game-id="${game.id}" class="mb-2">
     <a href="edit-game.html?gameId=${game.id}">
         <i class="bi bi-pencil"></i> ${game.gameDate}</a>
@@ -46,12 +52,6 @@
         <br>
         <a href="#" data-game-id="${game.id}" onclick="deleteGameClick(event);" >Удалить</a>
 </li>
-`; },gamesStats(gamesCount, players) { return `
-Количество игр: ${gamesCount}<br>
-${players.map((player) => {
-    return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : ` / ${player.drawCount}`}<br>`;
-}).join('')}
-<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
 `; },}
 	</script>
     <script>

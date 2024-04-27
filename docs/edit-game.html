@@ -208,7 +208,7 @@ ${game.tags ? ' / ' + game.tags : ''}
     const gameId = getGameIdFromUrl();
     if (gameId) {
       (async () => {
-        await refreshDBFromCloud();
+        await refreshDBFromCloud(true);
         const game = await loadGameById(gameId);
         if (game) {
           document.getElementById('pageTitle').innerHTML = templates.pageTitle(game);

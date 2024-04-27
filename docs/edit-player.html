@@ -145,7 +145,7 @@
 
     if (gameId) {
       (async () => {
-        const db = await refreshDBFromCloud();
+        const db = await refreshDBFromCloud(true);
         const game = await loadGameById(gameId);
         document.getElementById('games-link').href += '?editTitle=' + game.gameTitle;
 
