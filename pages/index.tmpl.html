@@ -67,47 +67,6 @@ ${addTitleMarker ? `<hr>` : ''}
 
         document.getElementById('game-filter-input').addEventListener("keyup", filterChangeEvent);
 
-        function makeGamesList(games) {
-            console.log('makeGamesList');
-            const gamesByTitle = {};
-            for (const game of games) {
-                if (!gamesByTitle[game.gameTitle]) {
-                    gamesByTitle[game.gameTitle] = [];
-                }
-                gamesByTitle[game.gameTitle].push(game);
-            }
-            const titles = Object.keys(gamesByTitle);
-            titles.sort();
-
-            const playersByGameTitle = {};
-            for (const gameTitle of titles) {
-                const playersByName = {};
-                const games = gamesByTitle[gameTitle];
-                for (const game of games) {
-                    for (const player of (game.players ?? [])) {
-                        playersByName[player.name] ??= [];
-                        playersByName[player.name].push(player);
-                    }
-                }
-
-                playersByGameTitle[gameTitle] = Object.values(playersByName).map((players) => {
-                    const playerName = players[0].name;
-                    return {
-                        name: players[0].name,
-                        winCount: getWinners({ players }).length,
-                        loseCount: getLosers({ players }).length,
-                        drawCount: getDraws({ players }).length,
-                    }
-                })
-            }
-
-            return {
-                titles,
-                games: gamesByTitle,
-                players: playersByGameTitle,
-            }
-        }
-
         function renderGameList(gamesList, gameFilterValue = '') {
             let lastTitle = '';
             gameListContainer.innerHTML = '';
@@ -186,11 +145,7 @@ ${addTitleMarker ? `<hr>` : ''}
         (async () => {
             const db = await refreshDBFromCloud();
             games = await db.getAll('games');
-
-            SessionCache.reset();
-            gamesList = SessionCache.cache('gamesList', function() {
-                return makeGamesList(games);
-            });
+            gamesList = getGamesList(games);
             renderGameList(gamesList, document.getElementById('game-filter-input').value);
         })();
 
@@ -198,7 +153,7 @@ ${addTitleMarker ? `<hr>` : ''}
             var reader = new FileReader();
             reader.onload = (event) => {
                 const dbData = JSON.parse(event.target.result);
-                importDb(dbData).then(() => window.location.reload());
+                importDb(dbData).then(() => SessionCache.reset() && window.location.reload());
             };
             reader.readAsText(event.target.files[0]);
         });

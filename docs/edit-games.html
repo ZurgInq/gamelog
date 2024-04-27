@@ -29,18 +29,29 @@
         <div class="row">
             <ul id="game-list" class=""></ul>
         </div>
+        <div class="row">
+            <div class="col-12">
+                <p id="gamesStats"></p>
+            </div>
+        </div>
     </div>
     <script>
-			const templates = {gameItem(game, winnersNames) { return `
+			const templates = {gameItem(game, winnersNames, durationHours, durationMinutes) { return `
 <li data-game-id="${game.id}" class="mb-2">
     <a href="edit-game.html?gameId=${game.id}">
         <i class="bi bi-pencil"></i> ${game.gameDate}</a>
         ${game.tags > '' ? ` <i>(${game.tags})</i>` : ''} 
-        ${(parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${game.gameDuration}` : '')}
-        ${(winnersNames.length > 0 ? `<br>Победители: ${winnersNames}` : '')}
+        ${(parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${durationHours}:${durationMinutes}` : '')}
+        ${(winnersNames.length > 0 ? `<br>Победители: <span style="color:green">${winnersNames}</span>` : '')}
         <br>
         <a href="#" data-game-id="${game.id}" onclick="deleteGameClick(event);" >Удалить</a>
 </li>
+`; },gamesStats(gamesCount, players) { return `
+Количество игр: ${gamesCount}<br>
+${players.map((player) => {
+    return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : ` / ${player.drawCount}`}<br>`;
+}).join('')}
+<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
 `; },}
 	</script>
     <script>
@@ -49,18 +60,25 @@
         const editTitle = urlParams.get('editTitle');
         refreshDBFromCloud().then(async (db) => {
             const games = await db.getAll('games');
+            const gamesList = getGamesList(games);
             let filteredGames = games;
             if (editTitle) {
                 document.getElementById('newGameLink').href += `?title=${editTitle}`;
                 document.getElementById('pageTitle').textContent += ` ${editTitle}`;
                 filteredGames = games.filter(g => g.gameTitle === editTitle).sort((a, b) => a.id < b.id);
+
+                document.getElementById('gamesStats').innerHTML = templates.gamesStats(
+                    Object.keys(filteredGames).length,
+                    gamesList.players[editTitle],
+                );
             }
 
             for (const game of filteredGames) {
                 const winners = (game.players || [])
                     .filter(player => player.result === 'winner');
                 const winnersNames = winners.map(player => player.name).join(', ');
-                gameListContainer.insertAdjacentHTML('beforeend', templates.gameItem(game, winnersNames, game.tags));
+                const durationParts = formatDuration(game.gameDuration);
+                gameListContainer.insertAdjacentHTML('beforeend', templates.gameItem(game, winnersNames, durationParts[0], durationParts[1]));
             }
         });
 

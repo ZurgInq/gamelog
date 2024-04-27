@@ -163,14 +163,14 @@ ${game.tags ? ' / ' + game.tags : ''}
       document.getElementById('submit').disabled = true;
 
       const gameDuration = joinToMinutes(
-        parseInt(document.getElementById('gameDurationHours').value),
-        parseInt(document.getElementById('gameDurationMinutes').value),
+        parseInt(document.getElementById('gameDurationHours').value) || 0,
+        parseInt(document.getElementById('gameDurationMinutes').value) || 0,
       );
 
       const data = {
         gameTitle: document.getElementById('gameTitle').value.trim(),
         gameDate: document.getElementById('gameDate').value,
-        gameDuration: gameDuration,
+        gameDuration,
         playersCount: document.getElementById('playersCount').value,
         tags: document.getElementById('tags').value.trim(),
         coopGame: document.getElementById('coopGame').checked,

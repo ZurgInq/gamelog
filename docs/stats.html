@@ -19,6 +19,11 @@
     
     <div class="container">
         <h2>Статистика</h2>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
+            </ol>
+        </nav>
         <div class="row mb-3">
             <div data-role="most-played-game-alltime" class="col">
                 
@@ -127,11 +132,13 @@
 
             const now = Date.now();
             const monthPeriodMSec = 60*60*24*30*1000;
-            const lastMonthGames = gamesAlltime.filter((game) => game.gameDate && Date.parse(game.gameDate) + 1*monthPeriodMSec >= now);
+            const lastMonthGames = SessionCache.cache('lastMonthGames', function() {
+                return gamesAlltime.filter((game) => game.gameDate && Date.parse(game.gameDate) + 1*monthPeriodMSec >= now);
+            });
             
-            const mostPlayedGameAlltime = Object.entries(
+            const mostPlayedGameAlltime = SessionCache.cache('mostPlayedGameAllTime', () => Object.entries(
                 gamesAlltime.reduce(calcPlayedGamesByTitle, {})
-            ).reduce((a, b) => a[1] > b[1] ? a : b, -Infinity);
+            ).reduce((a, b) => a[1] > b[1] ? a : b, -Infinity));
 
             let gameTitle = mostPlayedGameAlltime[0];
             let gamesCount = mostPlayedGameAlltime[1];
@@ -141,9 +148,9 @@
                 .innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}">${gameTitle}</a> (партий: ${gamesCount})`;
             
             //
-            const mostPlayedGameMonth = Object.entries(
+            const mostPlayedGameMonth = SessionCache.cache('mostPlayedGameMonth', () => Object.entries(
                 lastMonthGames.reduce(calcPlayedGamesByTitle, {})
-            ).reduce((a, b) => a[1] > b[1] ? a : b, -Infinity);
+            ).reduce((a, b) => a[1] > b[1] ? a : b, -Infinity));
 
             gameTitle = mostPlayedGameMonth[0];
             gamesCount = mostPlayedGameMonth[1];
@@ -153,7 +160,7 @@
                 .innerHTML = `<a href="edit-games.html?editTitle=${gameTitle}">${gameTitle}</a> (партий: ${gamesCount})`;
             
             // 
-            const bestWinratesMonthTime = calcWinRates(lastMonthGames);
+            const bestWinratesMonthTime = SessionCache.cache('bestWinratesMonthTime', () => calcWinRates(lastMonthGames));
             let bestWinrateText = '';
             for (const [plName, data] of Object.entries(bestWinratesMonthTime)) {
                 bestWinrateText += `${plName}: <a href="edit-games.html?editTitle=${data.title}">${data.title}</a> (${data.winRate}%)<br>`;
@@ -164,7 +171,7 @@
                 .innerHTML = bestWinrateText;
 
             //
-            const bestWinratesAllTime = calcWinRates(gamesAlltime);
+            const bestWinratesAllTime = SessionCache.cache('bestWinratesAllTime', () => calcWinRates(gamesAlltime));
             bestWinrateText = '';
             for (const [plName, data] of Object.entries(bestWinratesAllTime)) {
                 bestWinrateText += `${plName}: <a href="edit-games.html?editTitle=${data.title}">${data.title}</a> (${data.winRate}%)<br>`;

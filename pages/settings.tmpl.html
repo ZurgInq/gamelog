@@ -152,7 +152,7 @@
       var reader = new FileReader();
       reader.onload = (event) => {
           const dbData = JSON.parse(event.target.result);
-          importDb(dbData).then(() => window.location.reload());
+          importDb(dbData).then(() => SessionCache.reset() && window.location.reload());
       };
       reader.readAsText(event.target.files[0]);
     });

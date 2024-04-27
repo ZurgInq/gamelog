@@ -3,12 +3,25 @@ if ("serviceWorker" in navigator) {
 }
 
 function splitMinutes(durationMinutes) {
-    durationMinutes = parseInt(durationMinutes);
+    durationMinutes = parseInt(durationMinutes) || 0;
     return [parseInt(durationMinutes / 60), durationMinutes % 60];
 }
 
 function joinToMinutes(hours, minutes) {
     return hours * 60 + minutes;
+}
+
+function formatDuration(minutes) {
+    const parts = splitMinutes(minutes);
+    while (String(parts[0]).length < 2) {
+        parts[0] = '0' + String(parts[0]);
+    }
+
+    while (String(parts[1]).length < 2) {
+        parts[1] = '0' + String(parts[1]);
+    }
+
+    return parts;
 }
 
 function debounceFn(fn, wait) {
@@ -248,6 +261,53 @@ function getWinnersNames(game) {
     return getWinners(game).map(player => player.name).join(',');
 }
 
+function makeGamesList(games) {
+    console.log('makeGamesList');
+    const gamesByTitle = {};
+    for (const game of games) {
+        if (!gamesByTitle[game.gameTitle]) {
+            gamesByTitle[game.gameTitle] = [];
+        }
+        gamesByTitle[game.gameTitle].push(game);
+    }
+    const titles = Object.keys(gamesByTitle);
+    titles.sort();
+
+    const playersByGameTitle = {};
+    for (const gameTitle of titles) {
+        const playersByName = {};
+        const games = gamesByTitle[gameTitle];
+        for (const game of games) {
+            for (const player of (game.players ?? [])) {
+                playersByName[player.name] ??= [];
+                playersByName[player.name].push(player);
+            }
+        }
+
+        playersByGameTitle[gameTitle] = Object.values(playersByName).map((players) => {
+            const playerName = players[0].name;
+            return {
+                name: players[0].name,
+                winCount: getWinners({ players }).length,
+                loseCount: getLosers({ players }).length,
+                drawCount: getDraws({ players }).length,
+            }
+        })
+    }
+
+    return {
+        titles,
+        games: gamesByTitle,
+        players: playersByGameTitle,
+    }
+}
+
+function getGamesList(games) {
+    return SessionCache.cache('gamesList', function() {
+        return makeGamesList(games);
+    });
+}
+
 async function loadFromCloud(uuid, etag) {
     console.log(`load data with current etag ${etag}`);
     const headers = { 
@@ -324,6 +384,7 @@ async function refreshDBFromCloud() {
             console.log(`db loaded with etag ${etag}`);
             const db = await importDb(data);
             console.log(`db imported`);
+            SessionCache.reset();
             return db;
         } else if (!data) {
             console.log('fail load data from cloud');
@@ -352,6 +413,7 @@ async function saveDBToCloud() {
             console.log(`fail save db to cloud ${e}`);
         }
     }
+    SessionCache.reset();
 }
 
 const AppSettings = {
@@ -406,12 +468,7 @@ const SessionCache = {
         this.set(key, cachedData);
         return cachedData;
     },
-    reset: function(version) {
-        const cacheVersion = version || '1';
-        const cacheVersionKey = 'version';
-        if (sessionStorage.getItem(cacheVersionKey) !== cacheVersion) {
-            sessionStorage.clear();
-        }
-        sessionStorage.setItem(cacheVersionKey, cacheVersion);
+    reset: function() {
+        sessionStorage.clear();
     }
 }
