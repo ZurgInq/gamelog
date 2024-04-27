@@ -75,32 +75,31 @@ ${addTitleMarker ? `<hr>` : ''}
         }
 
         let games = null;
+        let gamesList = null;
 
         const filterChangeEvent = debounceFn(function (event) {
             
-            renderGameList(games, event.target.value.toLowerCase());
+            if (gamesList) {
+                renderGameList(gamesList, event.target.value.toLowerCase());
+            }
         }, 200);
 
         document.getElementById('game-filter-input').addEventListener("keyup", filterChangeEvent);
 
-        function renderGameList(games, gameFilterValue = '') {
-            const gamesByTitle = [];
+        function makeGamesList(games) {
+            console.log('makeGamesList');
+            const gamesByTitle = {};
             for (const game of games) {
                 if (!gamesByTitle[game.gameTitle]) {
                     gamesByTitle[game.gameTitle] = [];
                 }
                 gamesByTitle[game.gameTitle].push(game);
             }
-
             const titles = Object.keys(gamesByTitle);
             titles.sort();
 
-            let lastTitle = '';
-            gameListContainer.innerHTML = '';
+            const playersByGameTitle = {};
             for (const gameTitle of titles) {
-                if (gameFilterValue !== '' && !gameTitle.toLowerCase().includes(gameFilterValue)) {
-                    continue;
-                }
                 const playersByName = {};
                 const games = gamesByTitle[gameTitle];
                 for (const game of games) {
@@ -109,18 +108,36 @@ ${addTitleMarker ? `<hr>` : ''}
                         playersByName[player.name].push(player);
                     }
                 }
+
+                playersByGameTitle[gameTitle] = Object.values(playersByName).map((players) => {
+                    const playerName = players[0].name;
+                    return {
+                        name: players[0].name,
+                        winCount: getWinners({ players }).length,
+                        loseCount: getLosers({ players }).length,
+                        drawCount: getDraws({ players }).length,
+                    }
+                })
+            }
+
+            return {
+                titles,
+                games: gamesByTitle,
+                players: playersByGameTitle,
+            }
+        }
+
+        function renderGameList(gamesList, gameFilterValue = '') {
+            let lastTitle = '';
+            gameListContainer.innerHTML = '';
+            for (const gameTitle of gamesList.titles) {
+                if (gameFilterValue !== '' && !gameTitle.toLowerCase().includes(gameFilterValue)) {
+                    continue;
+                }
                 gameListContainer.insertAdjacentHTML('beforeend', templates.gameItem(
                     gameTitle,
-                    games.length,
-                    Object.values(playersByName).map((players) => {
-                        const playerName = players[0].name;
-                        return {
-                            name: players[0].name,
-                            winCount: getWinners({ players }).length,
-                            loseCount: getLosers({ players }).length,
-                            drawCount: getDraws({ players }).length,
-                        }
-                    }),
+                    gamesList.games[gameTitle].length,
+                    gamesList.players[gameTitle],
                     gameTitle[0] !== lastTitle[0],
                 ));
                 lastTitle = gameTitle;
@@ -188,7 +205,12 @@ ${addTitleMarker ? `<hr>` : ''}
         (async () => {
             const db = await refreshDBFromCloud();
             games = await db.getAll('games');
-            renderGameList(games, document.getElementById('game-filter-input').value);
+
+            SessionCache.reset();
+            gamesList = SessionCache.cache('gamesList', function() {
+                return makeGamesList(games);
+            });
+            renderGameList(gamesList, document.getElementById('game-filter-input').value);
         })();
 
         document.getElementById('importDBInput').addEventListener('change', (event) => {

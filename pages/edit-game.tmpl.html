@@ -144,8 +144,10 @@ ${game.tags ? ' / ' + game.tags : ''}
       }
       document.getElementById('submit').disabled = true;
 
-      let gameDuration = parseInt(document.getElementById('gameDurationHours').value) * 60;
-      gameDuration += parseInt(document.getElementById('gameDurationMinutes').value);
+      const gameDuration = joinToMinutes(
+        parseInt(document.getElementById('gameDurationHours').value),
+        parseInt(document.getElementById('gameDurationMinutes').value),
+      );
 
       const data = {
         gameTitle: document.getElementById('gameTitle').value.trim(),
@@ -193,7 +195,7 @@ ${game.tags ? ' / ' + game.tags : ''}
         if (game) {
           document.getElementById('pageTitle').innerHTML = templates.pageTitle(game);
 
-          const durationParts = splitGameDuration(game.gameDuration);
+          const durationParts = splitMinutes(game.gameDuration);
           document.getElementById('gameTitle').value = game.gameTitle;
           document.getElementById('gameDate').value = game.gameDate;
           document.getElementById('gameDurationHours').value = durationParts[0];

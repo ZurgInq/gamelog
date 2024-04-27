@@ -1,6 +1,15 @@
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("js/sw.js").then(console.log('Service Worker Registered'));
-}  
+}
+
+function splitMinutes(durationMinutes) {
+    durationMinutes = parseInt(durationMinutes);
+    return [parseInt(durationMinutes / 60), durationMinutes % 60];
+}
+
+function joinToMinutes(hours, minutes) {
+    return hours * 60 + minutes;
+}
 
 function debounceFn(fn, wait) {
     let timeoutId = null;
@@ -327,15 +336,6 @@ async function refreshDBFromCloud() {
     return openDB();
 }
 
-function splitGameDuration(durationMinutes) {
-    durationMinutes = parseInt(durationMinutes);
-    return [parseInt(durationMinutes / 60), durationMinutes % 60];
-}
-
-function joinGameDuration(hours, minutes) {
-    return hours * 60 + minutes;
-}
-
 async function saveDBToCloud() {
     const uuid = window.localStorage.getItem('uuid');
     if (uuid) {
@@ -387,4 +387,31 @@ const AppSettings = {
     set syncState(v) {
         return window.localStorage.setItem('syncState', parseInt(v));
     },
+}
+
+const SessionCache = {
+    set: function(key, value) {
+        sessionStorage.setItem(key, JSON.stringify(value));
+    },
+    get: function(key) {
+        return JSON.parse(sessionStorage.getItem(key));
+    },
+    cache(key, callback) {
+        let cachedData = this.get(key);
+        if (cachedData !== null) {
+            return cachedData;
+        }
+
+        cachedData = callback();
+        this.set(key, cachedData);
+        return cachedData;
+    },
+    reset: function(version) {
+        const cacheVersion = version || '1';
+        const cacheVersionKey = 'version';
+        if (sessionStorage.getItem(cacheVersionKey) !== cacheVersion) {
+            sessionStorage.clear();
+        }
+        sessionStorage.setItem(cacheVersionKey, cacheVersion);
+    }
 }
