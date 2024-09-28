@@ -16,9 +16,9 @@ ${addTitleMarker ? `<hr>` : ''}
         <div class="row">
             <div class="col">
                 <div class="form-group">
-                    <a href="edit-game.html">Добавить игру</a>
-                    | <a href="stats.html">Статистика</a>
-                    | <a href="settings.html">Настройки</a>
+                    <a onclick="addNewGame(event)" href="edit-game.html">Добавить игру</a>
+                    <a href="stats.html">Статистика</a>
+                    <a href="settings.html">Настройки</a>
                 </div>
                 <div class="form-group">
                     <input id="game-filter-input" placeholder="Поиск" type="text" class="form-control">
@@ -49,6 +49,8 @@ ${addTitleMarker ? `<hr>` : ''}
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const gameListContainer = document.getElementById('game-list');
+        const gameFilterInput = document.getElementById('game-filter-input');
+
         let uuid = urlParams.get('uuid');
         if (uuid) {
             window.localStorage.setItem('uuid', uuid);
@@ -65,7 +67,7 @@ ${addTitleMarker ? `<hr>` : ''}
             }
         }, 200);
 
-        document.getElementById('game-filter-input').addEventListener("keyup", filterChangeEvent);
+        gameFilterInput.addEventListener("keyup", filterChangeEvent);
 
         function renderGameList(gamesList, gameFilterValue = '') {
             let lastTitle = '';
@@ -140,6 +142,12 @@ ${addTitleMarker ? `<hr>` : ''}
             event.preventDefault();
             document.getElementById('importDBInput').click();
             return false;
+        }
+
+        function addNewGame(event) {
+            event.preventDefault();
+            const link = event.currentTarget.getAttribute('href');
+            window.location.href = link + `?title=${gameFilterInput.value}`;
         }
 
         (async () => {
