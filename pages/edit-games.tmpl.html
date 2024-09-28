@@ -17,7 +17,10 @@ ${players.map((player) => {
 <small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
 {{end}}
 {{define "content"}}<div class="container">
-        <h2 id="pageTitle">Список игр</h2>
+        <div class="row">
+            <h2 id="pageTitle">Список игр</h2>
+            &nbsp;<a id="editGameTitleLink" href="edit-game-title.html"><i class="bi bi-pencil"></i></a>
+        </div>
         <nav>
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
@@ -46,6 +49,7 @@ ${players.map((player) => {
             let filteredGames = games;
             if (editTitle) {
                 document.getElementById('newGameLink').href += `?title=${editTitle}`;
+                document.getElementById('editGameTitleLink').href += `?title=${editTitle}`;
                 document.getElementById('pageTitle').textContent += ` ${editTitle}`;
                 filteredGames = games.filter(g => g.gameTitle === editTitle).sort((a, b) => a.id < b.id);
 

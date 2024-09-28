@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="1.png">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="js/umd.js"></script>
+    <script src="js/jquery.slim.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js"></script>
+</head>
+
+<body>
+    <div class="container">
+    <h2 id="pageTitle">Изменить название</h2>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
+        <li class="breadcrumb-item active"><a id="listOfGamesLink" href="edit-games.html">Список игр</a></li>
+      </ol>
+    </nav>
+
+    <div class="mb-3 row fixed-top" id="status-alert"></div>
+    <form id="edit-game-title-form">
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="gameTitle">Название игры</label>
+        <div class="col-8">
+          <input id="gameTitle" name="gameTitle" type="text" class="form-control" required="required">
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="offset-4 col-8">
+          <button id="submit" name="submit" type="submit" class="btn btn-primary"
+            onclick="return saveGameClick(event);">Сохранить</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  <script>
+			const templates = {}
+	</script>
+  <script>
+    function saveGameClick(event, addPlayerAfterCreate) {
+      event.stopPropagation();
+      const isValid = document.getElementById('edit-game-title-form').reportValidity();
+      if (!isValid) {
+        return false;
+      }
+      const newGameTitle = document.getElementById('gameTitle').value.trim();
+      if (newGameTitle === gameTitle) {
+        return false;
+      }
+      if (!confirm(`Сменить название ${gameTitle} на ${newGameTitle} ?`)) {
+        return false;
+      }
+
+      document.getElementById('submit').disabled = true;
+      refreshDBFromCloud(false).then(async (db) => {
+        const gamesList = getGamesList(await db.getAll('games'));
+        const editGames = gamesList.games[gameTitle];
+        
+        for (let index = 0; index < editGames.length; index++) {
+          const game = editGames[index];
+          await updateGameById(game.id, (game) => {
+            game.gameTitle = newGameTitle;
+            return game;
+          });
+          window.location.search = 'title=' + newGameTitle;
+        }
+
+        document.getElementById('submit').disabled = false;
+      });
+      return false;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const gameTitle = urlParams.get('title');
+
+    document.getElementById('gameTitle').value = gameTitle;
+    (async () => {
+      const db = await refreshDBFromCloud(false);
+      const games = await db.getAll('games');
+      const gamesList = getGamesList(games);
+      console.log('count games = ', gamesList.games[gameTitle].length);
+    })();
+  </script>
+</body>
+
+</html>

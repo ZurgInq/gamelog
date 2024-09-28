@@ -17,7 +17,10 @@
 
 <body>
     <div class="container">
-        <h2 id="pageTitle">Список игр</h2>
+        <div class="row">
+            <h2 id="pageTitle">Список игр</h2>
+            &nbsp;<a id="editGameTitleLink" href="edit-game-title.html"><i class="bi bi-pencil"></i></a>
+        </div>
         <nav>
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
@@ -36,13 +39,7 @@
         </div>
     </div>
     <script>
-			const templates = {gamesStats(gamesCount, players) { return `
-Количество игр: ${gamesCount}<br>
-${players.map((player) => {
-    return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : ` / ${player.drawCount}`}<br>`;
-}).join('')}
-<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
-`; },gameItem(game, winnersNames, durationHours, durationMinutes) { return `
+			const templates = {gameItem(game, winnersNames, durationHours, durationMinutes) { return `
 <li data-game-id="${game.id}" class="mb-2">
     <a href="edit-game.html?gameId=${game.id}">
         <i class="bi bi-pencil"></i> ${game.gameDate}</a>
@@ -52,6 +49,12 @@ ${players.map((player) => {
         <br>
         <a href="#" data-game-id="${game.id}" onclick="deleteGameClick(event);" >Удалить</a>
 </li>
+`; },gamesStats(gamesCount, players) { return `
+Количество игр: ${gamesCount}<br>
+${players.map((player) => {
+    return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : ` / ${player.drawCount}`}<br>`;
+}).join('')}
+<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
 `; },}
 	</script>
     <script>
@@ -64,6 +67,7 @@ ${players.map((player) => {
             let filteredGames = games;
             if (editTitle) {
                 document.getElementById('newGameLink').href += `?title=${editTitle}`;
+                document.getElementById('editGameTitleLink').href += `?title=${editTitle}`;
                 document.getElementById('pageTitle').textContent += ` ${editTitle}`;
                 filteredGames = games.filter(g => g.gameTitle === editTitle).sort((a, b) => a.id < b.id);
 
