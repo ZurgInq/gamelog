@@ -51,13 +51,13 @@
 
     </div>
     <script>
-			const templates = {gameItem(gameTitle, gamesCount, players, addTitleMarker) { return `
+			const templates = {gameItem(gameTitle, gamesCount, players, addTitleMarker, totalGameTime, averageGameDuration) { return `
 ${addTitleMarker ? `<hr>` : ''}
 <li class="mb-3">
     ${addTitleMarker ? `<strong class="titleMarker">${gameTitle[0]}</strong>` : ''}
     <a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i> ${gameTitle}</a>
     <a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i> Добавить</a> <br>
-    Количество игр: ${gamesCount}<br>
+    Количество игр: ${gamesCount} ${totalGameTime >= 0 ? `<i>(${formatTotalGameDuration(totalGameTime, 'ч', 'м')}/~${formatTotalGameDuration(averageGameDuration, 'ч', 'м')})</i>` : ''}<br>
     ${players.map((player) => {
         return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : ` / ${player.drawCount}`}<br>`;
     }).join('')}
@@ -88,6 +88,21 @@ ${addTitleMarker ? `<hr>` : ''}
 
         gameFilterInput.addEventListener("keyup", filterChangeEvent);
 
+        function formatTotalGameDuration(minutes, hoursLabel, minutesLabel) {
+            const parts = splitMinutes(minutes);
+            let result = '';
+            if (parts[0]) {
+                result += `${parts[0]}${hoursLabel}`
+            }
+            if (parts[1]) {
+                if (result) {
+                    result += ' ';
+                }
+                result += `${parts[1]}${minutesLabel}`
+            }
+            return result;
+        }
+
         function renderGameList(gamesList, gameFilterValue = '') {
             let lastTitle = '';
             gameListContainer.innerHTML = '';
@@ -95,11 +110,15 @@ ${addTitleMarker ? `<hr>` : ''}
                 if (gameFilterValue !== '' && !gameTitle.toLowerCase().includes(gameFilterValue)) {
                     continue;
                 }
+                const totalGameTime = gamesList.games[gameTitle].reduce((acc, game) => acc + parseInt(game.gameDuration || 0), 0);
+                const averageGameDuration = Math.round(totalGameTime / gamesList.games[gameTitle].length);
                 gameListContainer.insertAdjacentHTML('beforeend', templates.gameItem(
                     gameTitle,
                     gamesList.games[gameTitle].length,
                     gamesList.players[gameTitle],
                     gameTitle[0] !== lastTitle[0],
+                    totalGameTime,
+                    averageGameDuration,
                 ));
                 lastTitle = gameTitle;
             }
