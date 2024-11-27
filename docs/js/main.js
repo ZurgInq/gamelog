@@ -2,6 +2,10 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("js/sw.js").then(console.log('Service Worker Registered'));
 }
 
+const RESULT_WINNER = 'winner';
+const RESULT_LOSER = 'loser';
+const RESULT_DRAW = 'draw';
+
 function splitMinutes(durationMinutes) {
     durationMinutes = parseInt(durationMinutes) || 0;
     return [parseInt(durationMinutes / 60), durationMinutes % 60];
@@ -93,11 +97,6 @@ async function loadGameById(gameId) {
 }
 
 /**
- * @callback updateCallback
- * @param {Object} game
- *
-
-/**
  * @param {number} gameId 
  * @param {updateCallback} updateCallback 
  */
@@ -106,7 +105,32 @@ async function updateGameId(gameId, updateCallback) {
     const tx = db.transaction('games', 'readwrite');
     const gamesStore = tx.objectStore('games');
     const game = await gamesStore.get(gameId);
-    await gamesStore.put(updateCallback(game));
+    const updatedGame = updateCallback(game);
+    if (
+        updatedGame
+        && updatedGame.resultByScores
+        && updatedGame.players
+    ) {
+        let winnerIdx = null;
+        for (let index = 0; index < updatedGame.players.length; index++) {
+            const player = updatedGame.players[index];
+            const score = parseInt(player.score);
+            if (score === NaN) {
+                continue;
+            }
+            if (winnerIdx === null) {
+                winnerIdx = index;
+                continue;
+            }
+            const winnerScore = parseInt(updatedGame.players[winnerIdx].score);
+            if (score > winnerScore) {
+                updatedGame.players[winnerIdx].result = RESULT_LOSER;
+                updatedGame.players[index].result = RESULT_WINNER;
+                winnerIdx = index;
+            }
+        }
+    }
+    await gamesStore.put(updatedGame);
     await saveDBToCloud();
 }
 
