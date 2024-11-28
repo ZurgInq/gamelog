@@ -120,18 +120,25 @@ async function updateGameId(gameId, updateCallback) {
             }
             if (winnerIdx === null) {
                 winnerIdx = index;
+                updatedGame.players[winnerIdx].result = RESULT_WINNER;
                 continue;
             }
             const winnerScore = parseInt(updatedGame.players[winnerIdx].score);
-            if (score > winnerScore) {
+            if (score < winnerScore) {
+                updatedGame.players[index].result = RESULT_LOSER;
+            } else if (score > winnerScore) {
                 updatedGame.players[winnerIdx].result = RESULT_LOSER;
                 updatedGame.players[index].result = RESULT_WINNER;
                 winnerIdx = index;
+            } else if (score == winnerScore) {
+                updatedGame.players[winnerIdx].result = RESULT_DRAW;
             }
         }
     }
     await gamesStore.put(updatedGame);
     await saveDBToCloud();
+
+    return updatedGame;
 }
 
 /**
@@ -139,7 +146,7 @@ async function updateGameId(gameId, updateCallback) {
  * @param {updateCallback} updateCallback 
  */
 async function updateGameById(gameId, updateCallback) {
-    updateGameId(gameId, updateCallback);
+    return updateGameId(gameId, updateCallback);
 }
 
 async function deleteGame(gameId) {

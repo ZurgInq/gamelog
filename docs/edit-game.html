@@ -142,6 +142,21 @@ ${game.tags ? ' / ' + game.tags : ''}
       });
     }
 
+    function renderPlayers(players) {
+      const playerListEl = document.getElementById('player-list');
+      const playerTableBodyEl = document.getElementById('player-table').getElementsByTagName('tbody')[0];
+      playerTableBodyEl.innerHTML = '';
+
+      for (let idx = 0; idx < players.length; idx++) {
+        const player = players[idx];
+        playerTableBodyEl.insertAdjacentHTML('beforeend', templates.playersTableRow(idx, player, gameId));
+        playerTableBodyEl
+          .querySelector(`[data-player-idx="${idx}"]`)
+          .querySelector(`[data-role="del-player"]`)
+          .onclick = (event) => delPlayerClick(event, idx);
+      }
+    }
+
     function delPlayerClick(event, plIdx) {
       event.stopPropagation();
       if (confirm(`Удалить игрока?`)) {
@@ -178,7 +193,7 @@ ${game.tags ? ' / ' + game.tags : ''}
 
       if (gameId) {
         (async () => {
-          await updateGameId(gameId, (game) => {
+          let updatedGame = await updateGameId(gameId, (game) => {
             data.id = game.id;
             data.players = game.players;
             return data;
@@ -188,6 +203,7 @@ ${game.tags ? ' / ' + game.tags : ''}
             document.getElementById('btn-add-player').click();
             return;
           }
+          renderPlayers(updatedGame.players);
         })();
         return false;
       }
@@ -220,8 +236,8 @@ ${game.tags ? ' / ' + game.tags : ''}
           document.getElementById('gameDurationMinutes').value = durationParts[1];
           document.getElementById('tags').value = game.tags;
           document.getElementById('playersCount').value = parseInt(game.playersCount);
-          if (game.coopGame) {
-            document.getElementById('coopGame').setAttribute('checked', 'checked');
+          if (game.resultByScores) {
+            document.getElementById('resultByScores').setAttribute('checked', 'checked');
           }
 
           document.getElementById('btn-add-player').href = 'edit-player.html?gameId=' + gameId;
@@ -229,19 +245,7 @@ ${game.tags ? ' / ' + game.tags : ''}
 
           const tags = await getTagsByGameTitle(game.gameTitle);
           renderTags(tags);
-
-          const playerListEl = document.getElementById('player-list');
-          const playerTableBodyEl = document.getElementById('player-table').getElementsByTagName('tbody')[0];
-
-          const players = game.players || [];
-          for (let idx = 0; idx < players.length; idx++) {
-            const player = players[idx];
-            playerTableBodyEl.insertAdjacentHTML('beforeend', templates.playersTableRow(idx, player, gameId));
-            playerTableBodyEl
-              .querySelector(`[data-player-idx="${idx}"]`)
-              .querySelector(`[data-role="del-player"]`)
-              .onclick = (event) => delPlayerClick(event, idx);
-          }
+          renderPlayers(game.players || []);
 
           document.getElementById('listOfGamesLink').href += `?editTitle=${game.gameTitle}`;
         }
