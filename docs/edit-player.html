@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="1.png">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="js/idb.umd.js"></script>
+    <script type="module" src="js/uuidv7.js"></script>
+    <script src="js/jquery.slim.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js?v=1785422242"></script>
+</head>
+
+<body>
+    <p id="text-loader" class="text-loader d-none">Загружаем данные из БД...</p>
+    <div class="container">
+    <h2>Добавить игрока</h2>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
+        <li class="breadcrumb-item"><a id="games-link" href="index.html">Список игр</a></li>
+        <li class="breadcrumb-item active"><a id="game-link" href="edit-game.html?gameId=">Игра</a></li>
+      </ol>
+    </nav>
+    <form id="new-player-form">
+      <div class="form-group row">
+        <label for="playerName" class="col-4 col-form-label">Имя игрока</label>
+        <div class="col-8">
+          <input id="playerName" name="playerName" placeholder="Наталья" type="text" class="form-control" required="required">
+          <span id="playerNameSuggest" class="form-text text-muted"></span>
+        </div>
+      </div>
+      <div class="form-group row">
+        <label class="col-4">Результат</label>
+        <div class="col-8">
+          <div class="custom-control custom-radio custom-control-inline">
+            <input name="playerResult" id="result_0" type="radio" class="custom-control-input" value="winner">
+            <label for="result_0" class="custom-control-label">Победа</label>
+          </div>
+          <div class="custom-control custom-radio custom-control-inline">
+            <input name="playerResult" id="result_1" type="radio" class="custom-control-input" value="loser">
+            <label for="result_1" class="custom-control-label">Поражение</label>
+          </div>
+          <div class="custom-control custom-radio custom-control-inline">
+            <input name="playerResult" id="result_2" type="radio" class="custom-control-input" value="draw">
+            <label for="result_2" class="custom-control-label">Ничья</label>
+          </div>
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="text" class="col-4 col-form-label">Количество очков</label>
+        <div class="col-8">
+          <input id="score" name="score" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="tags" class="col-4 col-form-label">Теги</label>
+        <div class="col-8">
+          <input id="tags" name="tags" placeholder="tag1,tag2,tag3" type="text" class="form-control">
+          <span id="tagsHelpBlock" class="form-text text-muted">tag1,tag2,tag3</span>
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="offset-4 col-8">
+          <button id="submit" name="submit" type="submit" class="btn btn-primary"
+            onclick="return savePlayer(event);">Сохранить</button>
+          <button id="submitAndAddOther" name="submit" type="submit" class="btn btn-primary"
+            onclick="return savePlayer(event, true);">Сохранить и добавить ещё</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const gameId = getGameIdFromUrl();
+    const playerId = getIntParamFromUrl('playerId');
+    document.getElementById('game-link').href += gameId;
+
+    const formObj = {
+      playerName: ProxyInput(document.getElementById('playerName')),
+      score: ProxyInput(document.getElementById('score')),
+      tags: ProxyInput(document.getElementById('tags')),
+      addTagClick(event) {
+        event.preventDefault();
+        const tag = event.currentTarget.innerText;
+        this.tags.value += this.tags.value ? `,${tag}` : tag;
+        return false;
+      },
+      async loadForm(game, playerId, names) {
+        if (game) {
+          const tagsEl = document.getElementById('tagsHelpBlock').parentElement;
+          const tags = await getPlayerTagsByGameTitle(game.gameTitle);
+          tags.forEach((tag) => {
+            const el = document.createElement('a');
+            el.href = '#';
+            el.innerText = tag;
+            el.style.marginRight = '0.5em';
+            el.onclick = (event) => { this.addTagClick(event) };
+            tagsEl.appendChild(el);
+          });
+
+          if (playerId !== null && game.players && game.players[playerId]) {
+            const player = game.players[playerId];
+            this.playerName.value = player.name;
+            this.score.value = player.score;
+            this.tags.value = player.tags;
+            const result = player.result;
+            switch (result) {
+              case 'winner':
+                document.getElementById('result_0').checked = true;
+                break;
+              case 'loser':
+                document.getElementById('result_1').checked = true;
+                break;
+              case 'draw':
+                document.getElementById('result_2').checked = true;
+                break;  
+              default:
+                break;
+            }
+          }
+        }
+
+        if (names) {
+          const playerNameContainerEl = document.getElementById('playerNameSuggest').parentElement;
+          const playerNameEl = document.getElementById('playerName');
+          names.forEach((name) => {
+            const el = document.createElement('a');
+            el.href = '#';
+            el.innerText = name;
+            el.style.marginRight = '0.5em';
+            el.onclick = (event) => { 
+              event.preventDefault();
+              playerNameEl.value = event.currentTarget.innerText;
+              return false;
+            };
+            playerNameContainerEl.appendChild(el);
+          });
+        }
+      },
+    };
+
+    if (gameId) {
+      (async () => {
+        const db = await refreshDBFromCloud(true);
+        const game = await loadGameById(gameId);
+        document.getElementById('games-link').href += '?editTitle=' + game.gameTitle;
+
+        const lastGames = (await getGames(db, game.gameTitle)).slice(-10) || [];
+        const names = {}
+        lastGames.map(
+          (game) => (game.players || []).forEach((player) => names[player.name] = true),
+        );
+        await formObj.loadForm(game, playerId, Object.keys(names));
+      })();
+    }
+
+    function savePlayer(event, addOther) {
+      const isValid = document.getElementById('new-player-form').reportValidity();
+      if (!isValid) {
+        return false;
+      }
+      document.getElementById('submit').disabled = true;
+
+      const data = {
+        name: document.getElementById('playerName').value.trim(),
+        result: document.querySelector('input[name="playerResult"]:checked').value,
+        score: document.getElementById('score').value.trim(),
+        tags: document.getElementById('tags').value.trim(),
+      };
+
+      if (data.score[0] === '=') {
+        const input = data.score.slice(1);
+        let sum = 0;
+        (input.split('+') || []).forEach((positive) => {
+          const negative = positive.split('-');
+          negative.forEach((val, idx) => {
+            if (idx === 0) {
+              sum += val === '' ? 0 : parseInt(val);
+            } else {
+              sum -= parseInt(val);
+            }
+          });
+        });
+        data.score = sum;
+      }
+
+      refreshDBFromCloud().then(async (db) => {
+        await updateGameId(parseInt(gameId), (game) => {
+          if (!game.players) {
+            game.players = [];
+          }
+          if (playerId >= 0 && game.players[playerId]) {
+            game.players[playerId] = data;
+          } else {
+            game.players.push(data);
+          }
+          return game;
+        });
+
+        if (addOther) {
+          document.getElementById('new-player-form').reset();
+          window.location.reload();
+        } else {
+          document.getElementById('submit').disabled = true;
+          document.getElementById('game-link').click();
+        }
+      });
+
+      return false;
+    }
+  </script>
+    <div class="container">
+        <small id="sync-status-label" class="d-none">Статус синхронизации:</small>
+    </div>
+</body>
+
+</html>

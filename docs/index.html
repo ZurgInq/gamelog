@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="1.png">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="js/idb.umd.js"></script>
+    <script type="module" src="js/uuidv7.js"></script>
+    <script src="js/jquery.slim.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js?v=1785422242"></script>
+</head>
+
+<body>
+    <p id="text-loader" class="text-loader d-none">Загружаем данные из БД...</p>
+    <div class="container">
+        <h2>Список игр</h2>
+        <div class="row">
+            <div class="col">
+                <div class="form-group">
+                    <a onclick="addNewGame(event)" href="edit-game.html">Добавить игру</a>
+                    <a href="stats.html">Статистика</a>
+                    <a href="settings.html">Настройки</a>
+                </div>
+                <div class="form-group">
+                    <input id="game-filter-input" placeholder="Поиск" type="text" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <ul id="game-list" class="no-bullets game-list"></ul>
+        </div>
+        <div class="row">
+            <div class="col">
+                <div class="dropdown">
+                    <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                        Экспорт\Импорт
+                    </button>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" onclick="return downloadAsCsv(event);" href="#">Сохранить как csv</a>
+                        <a class="dropdown-item" onclick="return exportDBClick(event);" href="#">Экспорт json</a>
+                        <a class="dropdown-item" onclick="return importDBClick(event);" href="#">Импорт json</a>
+                    </div>
+                </div>
+                <input id="importDBInput" type="file" class="invisible" />
+            </div>
+        </div>
+
+    </div>
+    <script>
+			const templates = {gameItem(gameTitle, gamesCount, players, addTitleMarker, totalGameTime, averageGameDuration) { return `
+${addTitleMarker ? `<hr>` : ''}
+<li class="mb-3">
+    ${addTitleMarker ? `<strong class="titleMarker">${gameTitle[0]}</strong>` : ''}
+    <a href="edit-games.html?editTitle=${gameTitle}"><i class="bi bi-pencil"></i> ${gameTitle}</a>
+    <a href="edit-game.html?title=${gameTitle}"><i class="bi bi-file-plus"></i> Добавить</a> <br>
+    Количество игр: ${gamesCount} ${totalGameTime >= 0 ? `<i>(${formatTotalGameDuration(totalGameTime, 'ч', 'м')}/~${formatTotalGameDuration(averageGameDuration, 'ч', 'м')})</i>` : ''}<br>
+    ${players.map((player) => {
+        return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : ` / ${player.drawCount}`}<br>`;
+    }).join('')}
+    <small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
+</li>
+`; },}
+	</script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameListContainer = document.getElementById('game-list');
+        const gameFilterInput = document.getElementById('game-filter-input');
+
+        let uuid = urlParams.get('uuid');
+        if (uuid) {
+            window.localStorage.setItem('uuid', uuid);
+            window.location.search = '';
+        }
+
+        let games = null;
+        let gamesList = null;
+
+        const filterChangeEvent = debounceFn(function (event) {
+            
+            if (gamesList) {
+                renderGameList(gamesList, event.target.value.toLowerCase());
+            }
+        }, 200);
+
+        gameFilterInput.addEventListener("keyup", filterChangeEvent);
+
+        function formatTotalGameDuration(minutes, hoursLabel, minutesLabel) {
+            const parts = splitMinutes(minutes);
+            let result = '';
+            if (parts[0]) {
+                result += `${parts[0]}${hoursLabel}`
+            }
+            if (parts[1]) {
+                if (result) {
+                    result += ' ';
+                }
+                result += `${parts[1]}${minutesLabel}`
+            }
+            return result;
+        }
+
+        function renderGameList(gamesList, gameFilterValue = '') {
+            let lastTitle = '';
+            gameListContainer.innerHTML = '';
+            for (const gameTitle of gamesList.titles) {
+                if (gameFilterValue !== '' && !gameTitle.toLowerCase().includes(gameFilterValue)) {
+                    continue;
+                }
+                const totalGameTime = gamesList.games[gameTitle].reduce((acc, game) => acc + parseInt(game.gameDuration || 0), 0);
+                const averageGameDuration = Math.round(totalGameTime / gamesList.games[gameTitle].length);
+                gameListContainer.insertAdjacentHTML('beforeend', templates.gameItem(
+                    gameTitle,
+                    gamesList.games[gameTitle].length,
+                    gamesList.players[gameTitle],
+                    gameTitle[0] !== lastTitle[0],
+                    totalGameTime,
+                    averageGameDuration,
+                ));
+                lastTitle = gameTitle;
+            }
+        }
+
+        function downloadAsCsv(event) {
+            event.preventDefault();
+            openDB().then(db => {
+                db.getAll('games').then(games => {
+                    const rows = [
+                        ["id", "Название игры", "Дата игры", "Длительность", "Теги", "Имя игрока", "Результат", "Очки", "Игрок - теги"],
+                    ];
+                    games.forEach(game => {
+                        let winners = '';
+                        if (game.players && game.players.length > 0) {
+                            winners = getWinnersNames(game);
+                        } else {
+                            game.players = [{}];
+                        }
+                        game.players.forEach((player, idx) => {
+                            rows.push([
+                                game.id,
+                                escapeCSVString(game.gameTitle),
+                                game.gameDate,
+                                game.gameDuration,
+                                escapeCSVString(game.tags ?? ''),
+                                player.name ?? '',
+                                player.result ?? '',
+                                player.score ?? '',
+                                player.tags ?? '',
+                            ]);
+                        });
+                    });
+                    let csvContent = rows.map(e => e.join(',')).join("\n");
+
+                    const file = new File([csvContent], 'my-games.csv', {
+                        type: 'text/csv',
+                    });
+                    downloadFile(file);
+                });
+                return false;
+            });
+            return false;
+        }
+
+        function exportDBClick(event) {
+            event.preventDefault();
+            (async () => {
+                const data = await exportDb();
+                const file = new File([JSON.stringify(data)], 'db1.json', {
+                    type: 'application/json',
+                });
+                downloadFile(file);
+            })();
+            return false;
+        }
+
+        function importDBClick(event) {
+            event.preventDefault();
+            document.getElementById('importDBInput').click();
+            return false;
+        }
+
+        function addNewGame(event) {
+            event.preventDefault();
+            const link = event.currentTarget.getAttribute('href');
+            window.location.href = link + `?title=${gameFilterInput.value}`;
+        }
+
+        (async () => {
+            const db = await refreshDBFromCloud();
+            const games = await getGames(db);
+            gamesList = getGamesList(games);
+            renderGameList(gamesList, document.getElementById('game-filter-input').value);
+        })();
+
+        document.getElementById('importDBInput').addEventListener('change', (event) => {
+            var reader = new FileReader();
+            reader.onload = (event) => {
+                const dbData = JSON.parse(event.target.result);
+                importFromFileHandler(dbData);
+            };
+            reader.readAsText(event.target.files[0]);
+        });
+    </script>
+    <div class="container">
+        <small id="sync-status-label" class="d-none">Статус синхронизации:</small>
+    </div>
+</body>
+
+</html>

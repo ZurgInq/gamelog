@@ -1,0 +1,162 @@
+{{define "js:gameRow(game)"}}
+<p>
+    <strong>${game[0]}</strong><br>
+    <i class="bi bi-person-fill"></i>${game[1]}-${game[2]} ${game[5] ? '(Кооп)' : ''}
+    <i class="bi bi-hourglass-split"></i>${game[3]}${game[8] > 0 ? '+' + game[8] : ''}
+</p>
+{{end}}
+{{define "content"}}<div class="container">
+        <h2>Рулетка</h2>
+        <div class="row">
+            <div class="col">
+                <form id="game-filter-form">
+                    <div class="form-group form-row">
+                        <div class="input-group col-6 col-sm-4">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text"><span class="bi bi-person-fill"></span></div>
+                            </div>
+                            <input placeholder="Игроков" type="number" class="form-control"
+                                id="players-filter-input" required="required">
+                        </div>
+                    </div>
+                    <div class="form-group form-row">
+                        <div class="input-group col-sm-4 col-6">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text"><span class="bi bi-hourglass-split">от</span></div>
+                            </div>
+                            <input placeholder="Время игры от" type="number" class="form-control"
+                                id="min-duration-filter-input">
+                        </div>
+                        <div class="input-group col-sm-4 col-6">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text"><span class="bi bi-hourglass-split">до</span></div>
+                            </div>
+                            <input placeholder="Время игры до" type="number" class="form-control"
+                                id="max-duration-filter-input">
+                        </div>
+                    </div>
+                    <div class="form-group form-row">
+                        <div class="col-4 col-sm-2 col-md-2">
+                            <button id="submit-filter" type="submit" onclick="return gameFilterObj.clickSubmitFilterGames(event);"
+                                type="button" class="btn btn-primary">Найти</button>
+                        </div>
+                        <div class="col-8">
+                            <button id="check-random" type="submit" onclick="return gameFilterObj.clickPickRandomGame(event);"
+                                type="button" class="btn btn-success">Мне повезёт!</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="row">
+            <div id="games-list" class="col">
+            </div>
+        </div>
+        <div class="row">
+            <a class="" onclick="return importClick(event);" href="#">Импорт csv</a>
+        </div>
+    </div>
+    <input id="importInput" type="file" class="invisible" />
+    <script src="js/csv.js"></script>
+    {{template "js-templates"}}
+    <script>
+        function importClick(event) {
+            event.preventDefault();
+            document.getElementById('importInput').click();
+            return false;
+        }
+
+        function loadGameData() {
+            const gameData = localStorage.getItem('roulette-games');
+            if (gameData) {
+                const games = JSON.parse(gameData);
+                return games.filter((game) => !game[7]); // отдано
+            }
+            return [];
+        }
+
+        function renderGames(data, filterCallback = null) {
+            const listContainer = document.getElementById('games-list');
+            listContainer.innerHTML = '';
+            data.forEach((game, idx) => {
+                if (filterCallback) {
+                    game = filterCallback(game);
+                    if (game === null) {
+                        return;
+                    }
+                }
+                listContainer.insertAdjacentHTML('beforeend', templates.gameRow(game));
+            });
+        }
+
+        document.getElementById('importInput').addEventListener('change', (event) => {
+            var reader = new FileReader();
+            reader.onload = (event) => {
+                const gameData = CSVToArray(event.target.result);
+                gameData.shift();
+                localStorage.setItem('roulette-games', JSON.stringify(gameData));
+                gameFilterObj.gameData = gameData;
+                renderGames(gameData);
+            };
+            reader.readAsText(event.target.files[0]);
+        });
+
+        const gameFilterObj = {
+            gameData: [],
+            form: document.getElementById('game-filter-form'),
+            minDuration: ProxyInput(document.getElementById('min-duration-filter-input'), {type: 'int'}),
+            maxDuration: ProxyInput(document.getElementById('max-duration-filter-input'), {type: 'int'}),
+            players: ProxyInput(document.getElementById('players-filter-input'), {type: 'int'}),
+            isFormValid: function() {
+                return this.form.reportValidity();
+            },
+            gameFilter: function(game, players) {
+                if (this.maxDuration.value !== null && players > 0) {
+                    const durationOnPlayer = this.maxDuration.value / players;
+                    const gameDurationOnPlayer = Number(game[3]);
+                    if (gameDurationOnPlayer > durationOnPlayer) {
+                        return null;
+                    }
+                }
+                if (this.minDuration.value !== null && players > 0) {
+                    const durationOnPlayer = this.minDuration.value / players;
+                    const gameDurationOnPlayer = Number(game[3]);
+                    if (gameDurationOnPlayer < durationOnPlayer) {
+                        return null;
+                    }
+                }
+                return game;
+            },
+            clickPickRandomGame: function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!this.isFormValid()) {
+                    return false;
+                }
+                const filtered = gameData.filter((game) => this.gameFilter(
+                    game,
+                    this.players.value,
+                ));
+                const randIdx = getRandomInt(0, filtered.length);
+
+                renderGames([filtered[randIdx]]);
+                return false;
+            },
+            clickSubmitFilterGames: function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                renderGames(this.gameData, (game) => this.gameFilter(
+                    game,
+                    this.players.value,
+                ));
+                return false;
+            }
+        };
+
+        const gameData = loadGameData();
+        if (gameData.length > 0) {
+            gameFilterObj.gameData = gameData;
+            renderGames(gameData);
+        }
+    </script>{{end}}

@@ -1,0 +1,27 @@
+{{define "base"}}<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="1.png">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="js/idb.umd.js"></script>
+    <script type="module" src="js/uuidv7.js"></script>
+    <script src="js/jquery.slim.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js?v={{ unix }}"></script>
+</head>
+
+<body>
+    <p id="text-loader" class="text-loader d-none">Загружаем данные из БД...</p>
+    {{template "content" .}}
+    <div class="container">
+        <small id="sync-status-label" class="d-none">Статус синхронизации:</small>
+    </div>
+</body>
+
+</html>{{end}}

@@ -1,0 +1,16 @@
+{
+    "background_color": "#ffffff",
+    "theme_color": "#000000",
+    "description": "game statistic",
+    "display": "fullscreen",
+    "icons": [
+        {
+            "src": "2.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "name": "My Games Log",
+    "short_name": "My Games Log",
+    "start_url": "/gamelog/index.html"
+}

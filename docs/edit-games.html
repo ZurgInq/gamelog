@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="1.png">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="js/idb.umd.js"></script>
+    <script type="module" src="js/uuidv7.js"></script>
+    <script src="js/jquery.slim.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js?v=1785422242"></script>
+</head>
+
+<body>
+    <p id="text-loader" class="text-loader d-none">Загружаем данные из БД...</p>
+    <div data-role="content" class="container">
+        <div class="row">
+            <h2 id="pageTitle">Список игр</h2>
+            &nbsp;<a id="editGameTitleLink" href="edit-game-title.html"><i class="bi bi-pencil"></i></a>
+        </div>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
+                <li class="breadcrumb-item active"><a id="newGameLink"
+                        href="edit-game.html">Добавить игру</a></li>
+            </ol>
+        </nav>
+
+        <div class="">
+            <ul id="game-list" class=""></ul>
+        </div>
+        <div class="">
+            <div class="col-12">
+                <p id="gamesStats"></p>
+            </div>
+        </div>
+        <form>
+            <input id="gameNotesId" name="gameNotesId" hidden="hidden">
+            <div class="form-group">
+                <label class="" for="gameNotes">Заметки</label>
+                <textarea class="form-control" name="gameNotes" id="gameNotes" rows="5" maxlength="10000"></textarea>
+            </div>
+            <div class="form-group row">
+                <div class="col-12">
+                    <button id="submit" name="submit" type="submit" class="btn btn-primary"
+                        onclick="return saveGameNotesClick(event);">Сохранить</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <script>
+			const templates = {gameItem(game, winnersNames, durationHours, durationMinutes) { return `
+<li data-game-id="${game.id}" class="mb-2">
+    <a href="edit-game.html?gameId=${game.id}">
+        <i class="bi bi-pencil"></i> ${game.gameDate}</a>
+        ${game.tags > '' ? ` <i>(${game.tags})</i>` : ''} 
+        ${(parseInt(game.gameDuration) > 0 ? `<br>Длительность: ${durationHours}:${durationMinutes}` : '')}
+        ${(winnersNames.length > 0 ? `<br>Победители: <span style="color:green">${winnersNames}</span>` : '')}
+        <br>
+        <a href="#" data-game-id="${game.id}" onclick="deleteGameClick(event);" >Удалить</a>
+</li>
+`; },gamesStats(gamesCount, players) { return `
+Количество игр: ${gamesCount}<br>
+${players.map((player) => {
+    return `${player.name}: <span style="color:green">${player.winCount}</span> / <span style="color:red">${player.loseCount}</span>${!player.drawCount ? '' : ` / ${player.drawCount}`}<br>`;
+}).join('')}
+<small><span style="color:green">Побед</span> / <span style="color:red">Поражений</span> / Ничьи</small>
+`; },}
+	</script>
+    <script>
+        const contentEl = document.querySelector('[data-role="content"]');
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameListContainer = document.getElementById('game-list');
+        const gameTitle = urlParams.get('editTitle');
+
+        hideEl(contentEl);
+        refreshDBFromCloud().then(async (db) => {
+            const games = await getGames(db, gameTitle);
+            const gamesList = getGamesList(games, gameTitle);
+            let filteredGames = games;
+            if (gameTitle) {
+                document.getElementById('newGameLink').href += `?title=${gameTitle}`;
+                document.getElementById('editGameTitleLink').href += `?title=${gameTitle}`;
+                document.getElementById('pageTitle').textContent += ` ${gameTitle}`;
+                filteredGames = games.filter(g => g.gameTitle === gameTitle).sort((a, b) => a.gameDate - b.gameDate);
+
+                document.getElementById('gamesStats').innerHTML = templates.gamesStats(
+                    Object.keys(filteredGames).length,
+                    gamesList.players[gameTitle],
+                );
+            }
+
+            for (const game of filteredGames) {
+                const winners = (game.players || [])
+                    .filter(player => player.result === 'winner');
+                const winnersNames = winners.map(player => player.name).join(', ');
+                const durationParts = formatDuration(game.gameDuration);
+                gameListContainer.insertAdjacentHTML('beforeend', templates.gameItem(game, winnersNames, durationParts[0], durationParts[1]));
+            }
+
+            const gameNotes = await getGameNotesByTitle(gameTitle);
+            document.getElementById('gameNotes').value = '';
+            if (gameNotes && gameNotes.length > 0) {
+                document.getElementById('gameNotesId').value = gameNotes[0].id;
+                document.getElementById('gameNotes').value = gameNotes[0].notes;
+            }
+
+            showEl(contentEl);
+        });
+
+        function deleteGameClick(event) {
+            event.preventDefault();
+            const gameId = event.currentTarget.getAttribute('data-game-id');
+            if (confirm(`Удалить игру?`)) {
+                (async ()=> {
+                    await deleteGame(gameId);
+                    document.querySelector(`[data-game-id="${gameId}"]`).remove();
+                })();
+            }
+            return false;
+        }
+
+        async function saveGameNotesClick(event) {
+            event.preventDefault();
+            
+            const notesEl = document.getElementById('gameNotes');
+            const gameNotesId = document.getElementById('gameNotesId').value;
+            if (notesEl) {
+                const notes = notesEl.value.trim();
+                await updateGameNotes(parseInt(gameNotesId), (gameNotes) => {
+                    gameNotes.notes = notes;
+                    return gameNotes;
+                });
+            }
+            
+        }
+    </script>
+    <div class="container">
+        <small id="sync-status-label" class="d-none">Статус синхронизации:</small>
+    </div>
+</body>
+
+</html>

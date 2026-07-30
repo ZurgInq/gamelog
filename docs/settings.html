@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="1.png">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="js/idb.umd.js"></script>
+    <script type="module" src="js/uuidv7.js"></script>
+    <script src="js/jquery.slim.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js?v=1785422242"></script>
+</head>
+
+<body>
+    <p id="text-loader" class="text-loader d-none">Загружаем данные из БД...</p>
+      <div class="container">
+    <h2>Настройки</h2>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="index.html">Главная</a></li>
+      </ol>
+    </nav>
+
+    <form id="new-game-form">
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="uuid">UUID пользователя</label>
+        <div class="col-8">
+          <input name="uuid" id="uuid" placeholder="ccfb92df-6d24-4917-88a6-6f0e427ec0dd" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="apiHost">Адрес АПИ</label>
+        <div class="col-8">
+          <input name="apiHost" id="apiHost" placeholder="http://host.com/endpoint" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <label class="col-4 col-form-label" for="apiKey">Ключ АПИ</label>
+        <div class="col-8">
+          <input name="apiKey" id="apiKey" placeholder="xxx-yyy-zzz" type="text" class="form-control">
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="offset-4 col-8">
+          <button id="submit" name="submit" type="submit" class="btn btn-primary" onclick="return saveFormClick(event);">Сохранить</button>
+        </div>
+      </div>
+    </form>
+
+    <form>
+        <div class="form-group row">
+            <label class="col-4 col-form-label" for="apiKey">DB Etag</label>
+            <div class="col-8">
+                <input name="dbEtag" id="dbEtag" readonly="readonly" disabled="disabled" type="text" class="form-control">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label class="col-4 col-form-label" for="apiKey">DB Sync</label>
+            <div class="col-8">
+            <input name="syncState" id="syncState" readonly="readonly" disabled="disabled" type="text" class="form-control">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label class="col-4 col-form-label" for="apiKey">Last Sync Time</label>
+            <div class="col-8">
+                <input name="lastSyncTime" id="lastSyncTime" readonly="readonly" disabled="disabled" type="text" class="form-control">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label class="col-4 col-form-label" for="dbVersion">DB Version</label>
+            <div class="col-8">
+                <input name="lastSyncTime" id="dbVersion" readonly="readonly" disabled="disabled" type="text" class="form-control">
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-group row">
+                <button popovertarget="deleteConfirmationDialog" class="btn btn-danger" type="button">Удалить данные</button>
+            </div>    
+        </div>
+    </form>
+    
+
+    <dialog style="padding: 1em 1em;" id="deleteConfirmationDialog" popover>
+      <p>Это необратимая операция! Удалить все данные?</p>
+      
+      <button class="btn btn-danger" type="button" popovertarget="deleteConfirmationDialog" onclick="return deleteDBClick(this, event)">Удалить</button>
+      <button autofocus popovertarget="deleteConfirmationDialog" popovertargetaction="hide" class="btn btn-secondary" type="button">Отмена!</button>
+    </dialog>
+
+    <div class="row">
+      <div class="col">
+          <div class="dropdown">
+              <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                  Экспорт\Импорт
+              </button>
+              <div class="dropdown-menu">
+                  <a class="dropdown-item" onclick="downloadAsCsv(event);" href="#">Сохранить как csv</a>
+                  <a class="dropdown-item" onclick="exportDBClick(event);" href="#">Экспорт json</a>
+                  <a class="dropdown-item" onclick="importDBClick(event);" href="#">Импорт json</a>
+              </div>
+          </div>
+          <input id="importDBInput" type="file" class="invisible" />
+      </div>
+    </div>
+  </div>
+
+  
+  <script>
+			const templates = {}
+	</script>
+  <script>
+    function downloadAsCsv(event) {
+        event.preventDefault();
+        openDB().then(db => {
+            db.getAll('games').then(games => {
+                const rows = [
+                    ["id", "Название игры", "Дата игры", "Длительность", "Теги", "Имя игрока", "Результат", "Очки", "Игрок - теги"],
+                ];
+                games.forEach(game => {
+                    let winners = '';
+                    if (game.players && game.players.length > 0) {
+                        winners = getWinnersNames(game);
+                    } else {
+                        game.players = [{}];
+                    }
+                    game.players.forEach((player, idx) => {
+                        rows.push([
+                            game.id,
+                            escapeCSVString(game.gameTitle),
+                            game.gameDate,
+                            game.gameDuration,
+                            escapeCSVString(game.tags ?? ''),
+                            player.name ?? '',
+                            player.result ?? '',
+                            player.score ?? '',
+                            player.tags ?? '',
+                        ]);
+                    });
+                });
+                let csvContent = rows.map(e => e.join(',')).join("\n");
+
+                const file = new File([csvContent], 'my-games.csv', {
+                    type: 'text/csv',
+                });
+                downloadFile(file);
+            });
+            return false;
+        });
+        return false;
+    }    
+
+    function exportDBClick(event) {
+        event.preventDefault();
+        (async () => {
+            const data = await exportDb();
+            const file = new File([JSON.stringify(data)], 'db1.json', {
+                type: 'application/json',
+            });
+            downloadFile(file);
+        })();
+        return false;
+    }
+
+    function importDBClick(event) {
+        event.preventDefault();
+        document.getElementById('importDBInput').click();
+        return false;
+    }
+
+    async function deleteDBClick(el, event) {
+        event.preventDefault();
+        const popovertarget = el.getAttribute('popovertarget');
+        let popoverEl = null;
+        if (popovertarget) {
+            popoverEl = document.getElementById(popovertarget);
+            popoverEl.innerHTML = "Идёт удаление...";
+        }
+        
+
+        const result = await deleteDB();
+        console.log('delete DB', result);
+
+        if (popoverEl) {
+            popoverEl.hidePopover();
+        }
+
+        window.location.reload();
+    }
+
+    function saveFormClick(event) {
+        event.preventDefault();
+        formObj.saveForm();
+        return false;
+    }
+
+    const formObj = {
+        uuid: document.getElementById('uuid'),
+        apiHost: document.getElementById('apiHost'),
+        apiKey: document.getElementById('apiKey'),
+        dbEtag: document.getElementById('dbEtag'),
+        syncState: document.getElementById('syncState'),
+        lastSyncTime: document.getElementById('lastSyncTime'),
+        dbVersion: document.getElementById('dbVersion'),
+        async loadForm() {
+            this.uuid.value = AppSettings.uuid;
+            this.apiHost.value = AppSettings.apiHost;
+            this.apiKey.value = AppSettings.apiKey;
+            this.dbEtag.value = AppSettings.dbEtag;
+            this.syncState.value = AppSettings.syncState ? 'ok' : 'no';
+            this.lastSyncTime.value = AppSettings.lastSyncTime;
+            const db = await openDB();
+            this.dbVersion.value = `${db.version}`;
+        },
+        saveForm: function() {
+            localStorage.setItem('uuid', this.uuid.value);
+            localStorage.setItem('apiHost', this.apiHost.value);
+            localStorage.setItem('apiKey', this.apiKey.value);
+        }
+    }
+
+    formObj.loadForm();
+    
+    document.getElementById('importDBInput').addEventListener('change', (event) => {
+        var reader = new FileReader();
+        reader.onload = (event) => {
+            const dbData = JSON.parse(event.target.result);
+            importFromFileHandler(dbData);
+        };
+        reader.readAsText(event.target.files[0]);
+    });
+  </script>
+    <div class="container">
+        <small id="sync-status-label" class="d-none">Статус синхронизации:</small>
+    </div>
+</body>
+
+</html>

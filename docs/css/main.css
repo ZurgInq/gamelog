@@ -1,0 +1,11 @@
+.no-bullets {
+    list-style-type: none;
+}
+
+.titleMarker {
+    margin-left: -1rem;
+}
+
+.text-loader {
+    text-align: center;
+}
