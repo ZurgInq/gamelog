@@ -17,3 +17,39 @@
 * `pages/` и `layouts/` - исходники html страниц на go шаблонах.
 * `builder/` - сборщик html страниц
 * `yandex-cloud-api/` - файлы для yandex функций
+
+Шаблонизатор поддерживает специальный синтаксис для автоматического помещения html кода в js переменные
+
+```
+{{define "js:pageTitle(game)"}}
+
+${game ? game.gameTitle : 'Добавить партию' }
+${game.tags ? ' / ' + game.tags : ''}
+(${game.gameDate})
+
+{{end}}
+```
+
+Использование требует вставки шаблона `js-templates` в html страницу, что автоматически определит объект `templates` в глобальной области видимости.
+
+```html
+<script>
+const templates = {
+    pageTitle(game) {
+        return `
+            ${game ? game.gameTitle : 'Добавить партию'}
+            ${game.tags ? ' / ' + game.tags : ''}
+            (${game.gameDate})
+        `;
+    }
+}
+</script>
+```
+
+Пример:
+```html
+{{template "js-templates"}}
+<script>
+    document.getElementById('pageTitle').innerHTML = templates.pageTitle(game);
+</script>
+```
